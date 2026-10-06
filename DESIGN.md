@@ -200,8 +200,8 @@ dat --style github --theme solarized-dark --no-watch FILE
 dat --list-styles
 ```
 
-Exit codes: 0, 1 on a bad argument or unreadable file, 2 on a config or style file that fails to load (named, with the
-key).
+Exit codes: 0; 2 when the request is wrong - a flag, a theme or style name, a config or style file (named, with the
+key); 1 when something fails while running, such as a file that cannot be read.
 
 ## Outside dat
 

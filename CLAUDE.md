@@ -42,8 +42,8 @@ drawing. `main.rs` is the CLI edge and the only place `anyhow` appears; it resol
   `scripts/versions.env` is what fmt and clippy run under, so a new clippy is adopted on purpose; builds and tests use
   the installed stable. There is no `rust-toolchain.toml`.
 - `[lints]` in `Cargo.toml`: pedantic clippy, no `unwrap`/`expect` outside tests (`clippy.toml`), no `unsafe`.
-- Errors are `thiserror` enums per module that name the file and key; `main` maps a `StyleError` or `ConfigError` to
-  exit 2, anything else to 1.
+- Errors are `thiserror` enums per module that name the file and key; `main` exits 2 when the request is wrong (a usage,
+  style, config or theme error) and 1 when something fails while running.
 - Tests: unit tests next to the code, CLI and hardening tests in `tests/`, snapshots in `tests/snapshots/` from
   `tests/fixtures/`. A snapshot diff is a reviewed rendering change, never a rubber stamp.
 - `deny.toml`: permissive licences only; an ignored advisory carries its reason.

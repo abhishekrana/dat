@@ -49,9 +49,9 @@ fn an_unknown_style_exits_two_and_lists_the_builtins() {
 }
 
 #[test]
-fn an_unknown_theme_exits_one_and_lists_the_flavors() {
+fn an_unknown_theme_exits_two_and_lists_the_flavors() {
     let out = dat(&["--inline", "--theme", "mocha", "tests/fixtures/sample.md"], None);
-    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(out.status.code(), Some(2));
     assert!(stderr(&out).contains("catppuccin-mocha"), "{}", stderr(&out));
 }
 
@@ -73,7 +73,7 @@ fn format_requires_inline_and_a_terminal_less_run_without_a_file_fails() {
     let out = dat(&["--format", "plain", "tests/fixtures/sample.md"], None);
     assert_eq!(out.status.code(), Some(2), "clap usage error");
     let out = dat(&[], None);
-    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(out.status.code(), Some(2));
     assert!(stderr(&out).contains("not a terminal"), "{}", stderr(&out));
     let out = dat(&["--inline"], None);
     assert!(out.status.success(), "an empty pipe is an empty document, not an error");
@@ -143,7 +143,7 @@ fn a_config_style_that_does_not_exist_is_a_style_error() {
 fn an_unknown_theme_in_the_config_names_the_config() {
     let path = config_file("badtheme", "theme = \"mocha\"\n");
     let out = dat_env(&["--inline"], Some("# Hi\n"), &[("DAT_CONFIG", &path)]);
-    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(out.status.code(), Some(2));
     let err = stderr(&out);
     assert!(err.contains("config.toml") && err.contains("catppuccin-mocha"), "{err}");
 }

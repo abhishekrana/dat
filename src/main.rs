@@ -4,7 +4,7 @@ use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use anyhow::{Context, bail};
+use anyhow::Context;
 use clap::{Parser, ValueEnum};
 use tracing::{error, info};
 
@@ -13,7 +13,7 @@ use dat::buffer::Buffer;
 use dat::config::{self, Config, ConfigError};
 use dat::layout::Layouter;
 use dat::style::{self, StyleError};
-use dat::theme::Theme;
+use dat::theme::{Theme, ThemeError};
 use dat::{doc, render};
 
 /// Width for --inline when neither a flag, fzf nor a terminal says otherwise.
@@ -79,8 +79,7 @@ fn main() -> ExitCode {
                 error!(error = format!("{e:#}"), "exit");
             }
             eprintln!("dat: {e:#}");
-            let file_error = e.downcast_ref::<StyleError>().is_some() || e.downcast_ref::<ConfigError>().is_some();
-            ExitCode::from(if file_error { 2 } else { 1 })
+            ExitCode::from(if asked_for_the_impossible(&e) { 2 } else { 1 })
         }
     }
 }
@@ -114,14 +113,14 @@ fn run(args: &Args) -> anyhow::Result<()> {
     let style = style::load(style_name, style::user_styles_dir().as_deref())?;
     let buffer = match &args.file {
         Some(path) => Buffer::from_path(path)?,
-        None if io::stdin().is_terminal() => bail!("no file given and stdin is a terminal (see --help)"),
+        None if io::stdin().is_terminal() => return Err(Usage::NoInput.into()),
         None => Buffer::from_reader(io::stdin().lock())?,
     };
     info!(path = ?buffer.path(), bytes = buffer.len_bytes(), style = %style.name, theme = %theme.id, "loaded");
 
     if !args.inline {
         if !io::stdout().is_terminal() {
-            bail!("stdout is not a terminal; use --inline to render into a pipe");
+            return Err(Usage::NotATerminal.into());
         }
         return App::new(buffer, style, theme)
             .with_watch(!args.no_watch && config.watch.unwrap_or(true))
@@ -147,6 +146,24 @@ fn run(args: &Args) -> anyhow::Result<()> {
         .lock()
         .write_all(text.as_bytes())
         .context("writing to stdout")
+}
+
+/// An invocation that cannot work as asked.
+#[derive(Debug, thiserror::Error)]
+enum Usage {
+    #[error("no file given and stdin is a terminal (see --help)")]
+    NoInput,
+    #[error("stdout is not a terminal; use --inline to render into a pipe")]
+    NotATerminal,
+}
+
+/// Exit 2, as clap's own usage errors do, when the request itself is wrong: a flag, a value, a config or style file.
+/// Anything that failed while running - an unreadable file, the terminal - exits 1.
+fn asked_for_the_impossible(e: &anyhow::Error) -> bool {
+    e.downcast_ref::<Usage>().is_some()
+        || e.downcast_ref::<StyleError>().is_some()
+        || e.downcast_ref::<ConfigError>().is_some()
+        || e.downcast_ref::<ThemeError>().is_some()
 }
 
 /// The flag wins, then fzf's preview width, then the terminal, then the default.

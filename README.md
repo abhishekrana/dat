@@ -53,7 +53,8 @@ fzf --preview 'dat --inline --format ansi {}'
 The reader follows the file on disk and reloads when it changes (`--no-watch` turns that off), and remembers where you
 were in each file.
 
-Exit codes: `0`, `1` on a bad argument or unreadable file, `2` on a config or style file that fails to load.
+Exit codes: `0`; `2` when the request is wrong - a flag, a theme or style name, a config or style file; `1` when
+something fails while running, such as a file that cannot be read.
 
 ## Keys
 
