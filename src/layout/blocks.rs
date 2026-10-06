@@ -34,7 +34,14 @@ pub(super) fn spacing(block: &Block, style: &Style) -> (u8, u8) {
         Block::Heading { level, .. } => (style.heading(*level).above, style.heading(*level).below),
         Block::Code { .. } => (style.code.above, style.code.below),
         Block::Footnote { .. } => (0, 0),
-        _ => (0, style.paragraph.below),
+        Block::FrontMatter { .. }
+        | Block::Paragraph { .. }
+        | Block::List { .. }
+        | Block::Quote { .. }
+        | Block::Callout { .. }
+        | Block::Table { .. }
+        | Block::Rule { .. }
+        | Block::Image { .. } => (0, style.paragraph.below),
     }
 }
 
