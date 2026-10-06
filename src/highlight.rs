@@ -41,7 +41,7 @@ impl Highlighter {
 
     /// Tokens per line, or `None` when no grammar knows `lang`.
     #[must_use]
-    pub fn highlight(&self, lang: &str, text: &str) -> Option<Vec<Vec<Token>>> {
+    pub fn highlight(self, lang: &str, text: &str) -> Option<Vec<Vec<Token>>> {
         let syntax = SYNTAXES.find_syntax_by_token(lang)?;
         let mut lines = HighlightLines::new(syntax, self.theme);
         let mut out = Vec::new();

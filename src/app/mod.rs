@@ -2,10 +2,10 @@
 
 mod clipboard;
 mod keys;
-pub mod links;
+mod links;
 mod position;
-pub mod search;
-pub mod selection;
+mod search;
+mod selection;
 mod watch;
 
 use std::io::stdout;

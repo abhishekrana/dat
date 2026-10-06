@@ -72,25 +72,6 @@ pub enum Block {
     },
 }
 
-impl Block {
-    #[must_use]
-    pub fn span(&self) -> Span {
-        match self {
-            Block::FrontMatter { span, .. }
-            | Block::Heading { span, .. }
-            | Block::Paragraph { span, .. }
-            | Block::List { span, .. }
-            | Block::Quote { span, .. }
-            | Block::Callout { span, .. }
-            | Block::Code { span, .. }
-            | Block::Table { span, .. }
-            | Block::Rule { span }
-            | Block::Footnote { span, .. }
-            | Block::Image { span, .. } => *span,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ListItem {
     /// `Some(done)` for a task item.
