@@ -117,6 +117,9 @@ pub struct App {
     scroll: usize,
     /// Rows the page body has on screen.
     body_rows: usize,
+    /// The source line a reload returns to: set by the first reload after the reader moves, kept across reloads, so
+    /// a file caught half-written does not move the reader.
+    anchor: Option<usize>,
     /// Page row where each heading starts, in document order.
     heading_rows: Vec<usize>,
     mode: Mode,
@@ -152,6 +155,7 @@ impl App {
             page: Page::default(),
             scroll: 0,
             body_rows: 0,
+            anchor: None,
             heading_rows: Vec::new(),
             mode: Mode::Read,
             query: String::new(),
@@ -200,6 +204,9 @@ impl App {
 
     pub fn update(&mut self, msg: Msg) {
         self.notice = None;
+        if msg != Msg::Reload {
+            self.anchor = None;
+        }
         match msg {
             Msg::ScrollLines(n) => self.scroll = self.scroll.saturating_add_signed(n as isize),
             Msg::HalfPage(dir) => {
@@ -251,7 +258,7 @@ impl App {
             }
             Msg::Back => self.back(),
             Msg::Yank => self.yank(),
-            Msg::Reload => self.reload("reloaded"),
+            Msg::Reload => self.reload(),
             Msg::ToggleWatch => self.toggle_watch(),
             Msg::Press { col, row } => self.press(col, row),
             Msg::DragTo { col, row } => self.drag_to(col, row),
@@ -524,8 +531,9 @@ impl App {
     }
 
     /// Re-reads the file and lays it out again, keeping the top source line on screen.
-    fn reload(&mut self, why: &str) {
-        let line = self.top_line();
+    fn reload(&mut self) {
+        let line = self.anchor.unwrap_or_else(|| self.top_line());
+        self.anchor = Some(line);
         if let Err(e) = self.buffer.reload() {
             self.notice = Some(e.to_string());
             return;
@@ -533,8 +541,8 @@ impl App {
         self.doc = doc::parse(&self.buffer);
         self.relayout(self.page.width);
         self.scroll_to_line(line);
-        self.notice = Some(why.to_owned());
-        info!(line, why, "reload");
+        self.notice = Some("reloaded".to_owned());
+        info!(line, "reload");
     }
 
     /// Scrolls so the first row laid out from source line `line` (1-based) is at the top.
@@ -754,7 +762,7 @@ impl App {
                 }
                 Input::Term(_) => None,
                 Input::FileChanged => {
-                    self.reload("reloaded");
+                    self.reload();
                     None
                 }
                 Input::WatchError(e) => {
@@ -798,7 +806,7 @@ impl App {
             Err(e) => self.notice = Some(format!("cannot run {editor}: {e}")),
         }
         let keep = self.notice.take();
-        self.reload("reloaded");
+        self.reload();
         if keep.is_some() {
             self.notice = keep;
         }
@@ -1040,13 +1048,35 @@ mod tests {
     }
 
     #[test]
-    fn reload_keeps_the_top_source_line_and_watch_toggles() {
-        let mut a = app(60, 11);
+    fn reload_keeps_the_top_source_line_through_a_file_caught_half_written() {
+        let path = std::env::temp_dir().join(format!("dat-reload-{}.md", std::process::id()));
+        let text = (0..60).map(|i| format!("Line {i}\n")).collect::<Vec<_>>().join("\n");
+        std::fs::write(&path, &text).expect("write");
+        let style = crate::style::load("github", None).expect("style");
+        let mut a = App::new(
+            Buffer::from_path(&path).expect("buffer"),
+            style,
+            Theme::default_theme().expect("theme"),
+        );
+        a.resize(100, 11);
         a.update(Msg::HalfPage(1));
         a.update(Msg::HalfPage(1));
-        let line = a.top_line();
+        assert_eq!(a.top_line(), 11, "ten rows down, paragraphs a blank line apart");
+        std::fs::write(&path, "").expect("truncate");
         a.update(Msg::Reload);
-        assert_eq!((a.top_line(), a.notice()), (line, Some("reloaded")));
+        assert_eq!(a.top_line(), 1, "an empty file shows its top");
+        std::fs::write(&path, &text).expect("rewrite");
+        a.update(Msg::Reload);
+        assert_eq!((a.top_line(), a.notice()), (11, Some("reloaded")));
+        a.update(Msg::Top);
+        a.update(Msg::Reload);
+        assert_eq!(a.top_line(), 1, "moving sets a new anchor");
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn watch_toggles_and_a_buffer_without_a_file_has_nothing_to_watch() {
+        let mut a = app(60, 11);
         a.update(Msg::ToggleWatch);
         assert_eq!(a.notice(), Some("watch off"));
         a.update(Msg::ToggleWatch);
