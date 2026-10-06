@@ -10,6 +10,7 @@ use tracing::{error, info};
 
 use dat::app::App;
 use dat::buffer::Buffer;
+use dat::config::{self, Config, ConfigError};
 use dat::layout::Layouter;
 use dat::style::{self, StyleError};
 use dat::theme::Theme;
@@ -19,6 +20,8 @@ use dat::{doc, render};
 const DEFAULT_INLINE_WIDTH: u16 = 120;
 /// fzf exports its preview pane's width here.
 const FZF_WIDTH_ENV: &str = "FZF_PREVIEW_COLUMNS";
+/// The style when neither a flag nor the config names one.
+const DEFAULT_STYLE: &str = "github";
 
 /// A markdown reader for the terminal that reads like a page.
 #[derive(Debug, Parser)]
@@ -32,12 +35,15 @@ struct Args {
     /// Output for --inline: auto is ansi on a terminal and plain in a pipe.
     #[arg(long, value_enum, default_value_t = Format::Auto, requires = "inline")]
     format: Format,
-    /// Style name: a built-in or a file in ~/.config/dat/styles.
-    #[arg(long, default_value = "github")]
-    style: String,
-    /// Theme flavor from the palette.
+    /// Style name: a built-in or a file in ~/.config/dat/styles [default: github].
+    #[arg(long)]
+    style: Option<String>,
+    /// Theme flavor from the palette [default: solarized-light].
     #[arg(long, env = "DAT_THEME")]
     theme: Option<String>,
+    /// Config file [default: ~/.config/dat/config.toml].
+    #[arg(long, env = "DAT_CONFIG")]
+    config: Option<PathBuf>,
     /// Pane width for --inline; defaults to fzf's preview width, else the terminal's, else 120.
     #[arg(long)]
     width: Option<u16>,
@@ -73,8 +79,8 @@ fn main() -> ExitCode {
                 error!(error = format!("{e:#}"), "exit");
             }
             eprintln!("dat: {e:#}");
-            let style_error = e.downcast_ref::<StyleError>().is_some();
-            ExitCode::from(if style_error { 2 } else { 1 })
+            let file_error = e.downcast_ref::<StyleError>().is_some() || e.downcast_ref::<ConfigError>().is_some();
+            ExitCode::from(if file_error { 2 } else { 1 })
         }
     }
 }
@@ -84,11 +90,28 @@ fn run(args: &Args) -> anyhow::Result<()> {
         list_styles();
         return Ok(());
     }
-    let theme = match &args.theme {
-        Some(id) => Theme::by_id(id)?,
-        None => Theme::default_theme()?,
+    let config_path = args.config.clone().or_else(config::path);
+    let config = match &config_path {
+        Some(path) => config::load(path)?,
+        None => Config::default(),
     };
-    let style = style::load(&args.style, style::user_styles_dir().as_deref())?;
+    let theme = match (&args.theme, &config.theme) {
+        (Some(id), _) => Theme::by_id(id)?,
+        (None, Some(id)) => Theme::by_id(id).with_context(|| {
+            let shown = config_path
+                .as_deref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default();
+            format!("config {shown}")
+        })?,
+        (None, None) => Theme::default_theme()?,
+    };
+    let style_name = args
+        .style
+        .as_deref()
+        .or(config.style.as_deref())
+        .unwrap_or(DEFAULT_STYLE);
+    let style = style::load(style_name, style::user_styles_dir().as_deref())?;
     let buffer = match &args.file {
         Some(path) => Buffer::from_path(path)?,
         None if io::stdin().is_terminal() => bail!("no file given and stdin is a terminal (see --help)"),
@@ -101,7 +124,7 @@ fn run(args: &Args) -> anyhow::Result<()> {
             bail!("stdout is not a terminal; use --inline to render into a pipe");
         }
         return App::new(buffer, style, theme)
-            .with_watch(!args.no_watch)
+            .with_watch(!args.no_watch && config.watch.unwrap_or(true))
             .run()
             .context("terminal");
     }

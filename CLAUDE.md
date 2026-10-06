@@ -32,7 +32,8 @@ tools are reported as skipped. `scripts/install-dev-tools.sh` installs the pinne
 
 `buffer` (rope) -> `doc` (blocks and inlines, every node with a byte `Span`) -> `layout` (rows of `Segment`s at a
 measure, cached per block and width) -> `render` (ratatui or ANSI/plain) with `app` running the Elm loop and `ui`
-drawing. `main.rs` is the CLI edge and the only place `anyhow` appears.
+drawing. `main.rs` is the CLI edge and the only place `anyhow` appears; it resolves each setting as flag, then env, then
+`config.toml` (`config`), then the default. `paths` is the one place XDG directories are worked out.
 
 ## Conventions
 
@@ -41,8 +42,8 @@ drawing. `main.rs` is the CLI edge and the only place `anyhow` appears.
   `scripts/versions.env` is what fmt and clippy run under, so a new clippy is adopted on purpose; builds and tests use
   the installed stable. There is no `rust-toolchain.toml`.
 - `[lints]` in `Cargo.toml`: pedantic clippy, no `unwrap`/`expect` outside tests (`clippy.toml`), no `unsafe`.
-- Errors are `thiserror` enums per module that name the file and key; `main` maps a `StyleError` to exit 2, anything
-  else to 1.
+- Errors are `thiserror` enums per module that name the file and key; `main` maps a `StyleError` or `ConfigError` to
+  exit 2, anything else to 1.
 - Tests: unit tests next to the code, CLI and hardening tests in `tests/`, snapshots in `tests/snapshots/` from
   `tests/fixtures/`. A snapshot diff is a reviewed rendering change, never a rubber stamp.
 - `deny.toml`: permissive licences only; an ignored advisory carries its reason.

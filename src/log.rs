@@ -1,22 +1,11 @@
 //! Logging: a file under the state dir for the TUI, stderr for `--inline`. Level from `DAT_LOG`.
 
-use std::path::PathBuf;
-
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::EnvFilter;
 
 const ENV: &str = "DAT_LOG";
 /// Daily files kept before the oldest is removed.
 const KEEP_LOG_FILES: usize = 3;
-
-/// Where the log files live: `$XDG_STATE_HOME/dat` or `~/.local/state/dat`, one file a day.
-#[must_use]
-pub fn state_dir() -> Option<PathBuf> {
-    std::env::var_os("XDG_STATE_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local").join("state")))
-        .map(|d| d.join("dat"))
-}
 
 /// Installs the global subscriber. The guard flushes the file writer on drop; keep it alive in `main`.
 pub fn init(to_stderr: bool) -> std::io::Result<Option<WorkerGuard>> {
@@ -30,7 +19,7 @@ pub fn init(to_stderr: bool) -> std::io::Result<Option<WorkerGuard>> {
             .init();
         return Ok(None);
     }
-    let Some(dir) = state_dir() else {
+    let Some(dir) = crate::paths::state_dir() else {
         return Ok(None);
     };
     std::fs::create_dir_all(&dir)?;

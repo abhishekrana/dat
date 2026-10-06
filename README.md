@@ -53,7 +53,7 @@ fzf --preview 'dat --inline --format ansi {}'
 The reader follows the file on disk and reloads when it changes (`--no-watch` turns that off), and remembers where you
 were in each file.
 
-Exit codes: `0`, `1` on a bad argument or unreadable file, `2` on a style file that fails to load.
+Exit codes: `0`, `1` on a bad argument or unreadable file, `2` on a config or style file that fails to load.
 
 ## Keys
 
@@ -93,11 +93,23 @@ A **theme** gives the roles their colours: `solarized-light` (default), `solariz
 
 ## Configuration
 
+dat reads `~/.config/dat/config.toml` (`$XDG_CONFIG_HOME/dat/config.toml`) when it exists. Every key is optional:
+
+```toml
+theme = "solarized-dark"  # default: solarized-light
+style = "github"          # a built-in or a file in ~/.config/dat/styles/
+watch = true              # follow the file on disk and reload on change
+```
+
+A flag beats an environment variable, which beats the config file, which beats the built-in default. An unknown key is
+an error, so a typo is reported rather than ignored.
+
 | Variable          | Effect                                                                     |
 | ----------------- | -------------------------------------------------------------------------- |
-| `DAT_THEME`       | default theme, as `--theme`                                                |
+| `DAT_THEME`       | theme, as `--theme`                                                        |
+| `DAT_CONFIG`      | config file to read instead, as `--config`                                 |
 | `DAT_LOG`         | log level (`debug`, `info`, ...); the reader logs to `~/.local/state/dat/` |
-| `XDG_CONFIG_HOME` | where `dat/styles/` is looked up                                           |
+| `XDG_CONFIG_HOME` | where `dat/config.toml` and `dat/styles/` are looked up                    |
 | `XDG_STATE_HOME`  | where logs and reading positions are kept                                  |
 
 ## Development

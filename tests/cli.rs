@@ -5,7 +5,15 @@ use std::io::Write as _;
 use std::process::{Command, Output, Stdio};
 
 fn dat(args: &[&str], stdin: Option<&str>) -> Output {
+    dat_env(args, stdin, &[])
+}
+
+/// Runs the binary with no `DAT_THEME` and no config file unless `env` sets them.
+fn dat_env(args: &[&str], stdin: Option<&str>, env: &[(&str, &str)]) -> Output {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_dat"));
+    cmd.env_remove("DAT_THEME")
+        .env("DAT_CONFIG", "/no/such/dat/config.toml");
+    cmd.envs(env.iter().copied());
     cmd.args(args)
         .stdin(if stdin.is_some() { Stdio::piped() } else { Stdio::null() });
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -76,4 +84,60 @@ fn list_styles_and_help_are_available() {
         text.contains("--inline") && text.contains("--no-watch") && text.contains("DAT_THEME"),
         "{text}"
     );
+}
+
+fn config_file(name: &str, text: &str) -> String {
+    let dir = std::env::temp_dir().join(format!("dat-cli-{name}-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("temp dir");
+    let path = dir.join("config.toml");
+    std::fs::write(&path, text).expect("write config");
+    path.to_string_lossy().into_owned()
+}
+
+fn ansi(args: &[&str], env: &[(&str, &str)]) -> String {
+    let mut all = vec!["--inline", "--format", "ansi", "--width", "60"];
+    all.extend_from_slice(args);
+    let out = dat_env(&all, Some("# Hi\n\nSome *text* and a [link](x.md).\n"), env);
+    assert!(out.status.success(), "{}", stderr(&out));
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+#[test]
+fn the_config_sets_the_theme_and_the_env_and_flag_override_it() {
+    let dark = config_file("theme", "theme = \"solarized-dark\"\n");
+    let from_config = ansi(&[], &[("DAT_CONFIG", &dark)]);
+    assert_eq!(from_config, ansi(&["--theme", "solarized-dark"], &[]));
+    assert_ne!(from_config, ansi(&[], &[]), "the default is solarized-light");
+    let mocha = ansi(&["--theme", "catppuccin-mocha"], &[]);
+    assert_eq!(
+        ansi(&[], &[("DAT_CONFIG", &dark), ("DAT_THEME", "catppuccin-mocha")]),
+        mocha
+    );
+    assert_eq!(ansi(&["--config", &dark, "--theme", "catppuccin-mocha"], &[]), mocha);
+}
+
+#[test]
+fn a_bad_config_exits_two_naming_the_file_and_key() {
+    let path = config_file("bad", "colour = \"blue\"\n");
+    let out = dat_env(&["--inline"], Some("# Hi\n"), &[("DAT_CONFIG", &path)]);
+    assert_eq!(out.status.code(), Some(2));
+    let err = stderr(&out);
+    assert!(err.contains("config.toml") && err.contains("colour"), "{err}");
+}
+
+#[test]
+fn a_config_style_that_does_not_exist_is_a_style_error() {
+    let path = config_file("style", "style = \"nope\"\n");
+    let out = dat_env(&["--inline"], Some("# Hi\n"), &[("DAT_CONFIG", &path)]);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(stderr(&out).contains("nope"), "{}", stderr(&out));
+}
+
+#[test]
+fn an_unknown_theme_in_the_config_names_the_config() {
+    let path = config_file("badtheme", "theme = \"mocha\"\n");
+    let out = dat_env(&["--inline"], Some("# Hi\n"), &[("DAT_CONFIG", &path)]);
+    assert_eq!(out.status.code(), Some(1));
+    let err = stderr(&out);
+    assert!(err.contains("config.toml") && err.contains("catppuccin-mocha"), "{err}");
 }

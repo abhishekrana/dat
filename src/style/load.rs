@@ -44,10 +44,7 @@ pub fn builtins() -> impl Iterator<Item = &'static str> {
 /// `~/.config/dat/styles`, where a user's own styles live.
 #[must_use]
 pub fn user_styles_dir() -> Option<PathBuf> {
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
-    Some(base.join("dat").join("styles"))
+    crate::paths::config_dir().map(|d| d.join("styles"))
 }
 
 /// Loads a style by name, resolving its `extends` chain.

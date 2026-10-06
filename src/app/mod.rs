@@ -702,7 +702,7 @@ impl App {
     pub fn run(mut self) -> std::io::Result<()> {
         let (tx, rx) = mpsc::channel();
         self.tx = Some(tx.clone());
-        if let Some(dir) = crate::log::state_dir() {
+        if let Some(dir) = crate::paths::state_dir() {
             self.positions = Some(Positions::open(&dir));
         }
         let mut terminal = ratatui::init();

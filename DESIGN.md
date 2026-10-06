@@ -33,6 +33,7 @@ Not a browser (no history stack), not a file manager, not a notes app.
 - Watch and reload, `--inline` to stdout for fzf and yazi previews, stdin.
 - One built-in style (`github`), user styles from `~/.config/dat/styles/`, `--style`, `S` cycles at runtime.
 - Theme by role: `--theme <flavor>`, `DAT_THEME`, default `solarized-light`.
+- `~/.config/dat/config.toml` sets `theme`, `style` and `watch`; a flag, then an environment variable, overrides it.
 
 **v2 - beyond the grid**
 
@@ -222,7 +223,8 @@ dat --style github --theme solarized-dark --no-watch FILE
 dat --list-styles
 ```
 
-Exit codes: 0, 1 on a bad argument or unreadable file, 2 on a style file that fails to load (named, with the key).
+Exit codes: 0, 1 on a bad argument or unreadable file, 2 on a config or style file that fails to load (named, with the
+key).
 
 ## Outside dat
 

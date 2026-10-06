@@ -5,10 +5,12 @@
 
 pub mod app;
 pub mod buffer;
+pub mod config;
 pub mod doc;
 pub mod highlight;
 pub mod layout;
 pub mod log;
+pub mod paths;
 pub mod render;
 pub mod style;
 pub mod theme;
