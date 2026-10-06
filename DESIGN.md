@@ -190,7 +190,7 @@ vi and less, nothing to learn:
 | `t`                   | outline overlay; `↵` jumps, `Esc` closes                  |
 | `/` `n` `N`           | search, next, previous; `Esc` clears                      |
 | click                 | follow a link                                             |
-| drag                  | select text; the release copies it (via `clip`)           |
+| drag                  | select text; the release copies it                        |
 | `Backspace`           | back to the note a link was followed from                 |
 | `y`                   | copy the selection, else the code block at the top screen |
 | `e`                   | open the file at the top line in `$VISUAL` or `$EDITOR`   |
@@ -205,9 +205,9 @@ vault root (the nearest `.obsidian` or `.git`), a `.md` path opens relative to t
 `--inline` on a terminal still wraps links in OSC 8.
 
 Selection is dat's own, not the terminal's: mouse capture is on for the wheel and for click-to-follow, so the terminal
-never sees the drag. A press anchors, a drag paints the range in `selection`, and a release copies through `clip` -
-matching Ghostty's `copy-on-select`. A press that never moves is a click, so following a link is unchanged. What is
-copied is the rendered page, not the source: wrapped lines are wrapped and trailing padding is trimmed per row.
+never sees the drag. A press anchors, a drag paints the range in `selection`, and a release copies it - matching
+Ghostty's `copy-on-select`. A press that never moves is a click, so following a link is unchanged. What is copied is the
+rendered page, not the source: wrapped lines are wrapped and trailing padding is trimmed per row.
 
 The status line is one row on `surface`: file name, current section, percent, and three hints. It is the viewer's,
 inside the pane; tmux keeps its own below.
@@ -230,9 +230,10 @@ key).
 
 dat starts three programs and assumes nothing else about the machine:
 
-- `clip` - copying (selection release, `y`) pipes the text to a `clip` command on `PATH`; without one, the copy reports
-  that it failed.
-- `$VISUAL` or `$EDITOR` - `e` opens the file at the top line.
+- A clipboard tool - copying (selection release, `y`) pipes the text to `wl-copy` under Wayland, `xclip` under X11 or
+  `pbcopy` on macOS. With none of them, dat writes OSC 52 and the terminal sets the clipboard, if it allows that.
+- `$VISUAL` or `$EDITOR` - `e` runs it through `sh`, so a value with arguments (`code --wait`) works, and opens the file
+  at the top line.
 - `xdg-open` - a link that is neither an anchor, a wikilink nor a `.md` file.
 
 ## Engineering conventions

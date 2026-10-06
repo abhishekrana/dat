@@ -133,14 +133,15 @@ fn find_file(dir: &Path, want: &str, depth: usize) -> Option<PathBuf> {
     dirs.into_iter().find_map(|d| find_file(&d, want, depth - 1))
 }
 
-/// Hands a URL or path to the desktop, detached from the terminal.
+/// Hands a URL or path to the desktop, detached from the terminal; a thread reaps it so no zombie is left.
 pub fn open_external(target: &str) -> std::io::Result<()> {
-    Command::new("xdg-open")
+    let mut child = Command::new("xdg-open")
         .arg(target)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()?;
+    std::thread::spawn(move || child.wait());
     Ok(())
 }
 

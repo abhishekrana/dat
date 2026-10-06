@@ -1,5 +1,6 @@
 //! The interactive reader: model, messages, update, and the event loop.
 
+mod clipboard;
 mod keys;
 pub mod links;
 mod position;
@@ -7,9 +8,9 @@ pub mod search;
 pub mod selection;
 mod watch;
 
-use std::io::{Write as _, stdout};
+use std::io::stdout;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -38,6 +39,8 @@ const INPUT_POLL: Duration = Duration::from_millis(100);
 #[derive(Debug)]
 pub enum Input {
     Term(Event),
+    /// The terminal stopped delivering events; the reader cannot go on.
+    TermError(String),
     FileChanged,
     WatchError(String),
 }
@@ -432,12 +435,7 @@ impl App {
             return;
         }
         let chars = text.chars().count();
-        self.notice = Some(match copy(&text) {
-            Ok(status) if status.success() => format!("copied {chars} characters"),
-            Ok(status) => format!("clip exited with {status}"),
-            Err(e) => format!("clip failed: {e}"),
-        });
-        info!(chars, notice = ?self.notice, "copy selection");
+        self.copy(&text, &format!("{chars} characters"));
     }
 
     #[must_use]
@@ -608,12 +606,18 @@ impl App {
             return;
         };
         let lines = code.lines().count();
-        self.notice = Some(match copy(&code) {
-            Ok(status) if status.success() => format!("copied {lines} lines"),
-            Ok(status) => format!("clip exited with {status}"),
-            Err(e) => format!("clip failed: {e}"),
-        });
-        info!(lines, notice = ?self.notice, "yank");
+        self.copy(&code, &format!("{lines} lines"));
+    }
+
+    /// Copies `text`, saying in the status row how much and by what.
+    fn copy(&mut self, text: &str, what: &str) {
+        let notice = match clipboard::copy(text) {
+            Ok(clipboard::Via::Tool(_)) => format!("copied {what}"),
+            Ok(clipboard::Via::Terminal) => format!("copied {what} through the terminal"),
+            Err(e) => format!("copy failed: {e}"),
+        };
+        info!(%notice, "copy");
+        self.notice = Some(notice);
     }
 
     /// Line number (1-based) of the source at the top of the screen.
@@ -714,6 +718,7 @@ impl App {
             self.positions = Some(Positions::open(&dir));
         }
         let mut terminal = ratatui::init();
+        let _restore = RestoreTerminal;
         execute!(stdout(), EnableMouseCapture)?;
         spawn_input_thread(tx, Arc::clone(&self.input_paused));
         info!(path = ?self.buffer.path(), "open");
@@ -723,8 +728,6 @@ impl App {
         self.apply_watch();
         let result = self.event_loop(&mut terminal, &rx);
         self.remember_position();
-        execute!(stdout(), DisableMouseCapture)?;
-        ratatui::restore();
         result
     }
 
@@ -758,6 +761,7 @@ impl App {
                     None
                 }
                 Input::Term(_) => None,
+                Input::TermError(e) => return Err(std::io::Error::other(format!("terminal input: {e}"))),
                 Input::FileChanged => {
                     self.reload();
                     None
@@ -783,9 +787,10 @@ impl App {
             self.notice = Some("no file to edit".to_owned());
             return Ok(());
         };
-        let editor = std::env::var("VISUAL")
-            .or_else(|_| std::env::var("EDITOR"))
-            .unwrap_or_else(|_| "vi".to_owned());
+        let editor = ["VISUAL", "EDITOR"]
+            .into_iter()
+            .find_map(|var| std::env::var(var).ok().filter(|v| !v.trim().is_empty()))
+            .unwrap_or_else(|| "vi".to_owned());
         let line = self.top_line();
         info!(%editor, line, "edit");
         self.input_paused.store(true, Ordering::Release);
@@ -793,7 +798,14 @@ impl App {
         thread::sleep(INPUT_POLL + Duration::from_millis(20));
         execute!(stdout(), DisableMouseCapture)?;
         ratatui::restore();
-        let status = Command::new(&editor).arg(format!("+{line}")).arg(&path).status();
+        // Through the shell, as git does, so `code --wait` or `emacsclient -t` work.
+        let status = Command::new("sh")
+            .arg("-c")
+            .arg(format!("{editor} \"$@\""))
+            .arg("sh")
+            .arg(format!("+{line}"))
+            .arg(&path)
+            .status();
         *terminal = ratatui::init();
         execute!(stdout(), EnableMouseCapture)?;
         self.input_paused.store(false, Ordering::Release);
@@ -812,6 +824,16 @@ impl App {
 }
 
 /// Forwards terminal events to the loop, sleeping while an editor owns the terminal.
+/// Leaves mouse capture, raw mode and the alternate screen on drop, so an error or a panic restores the terminal.
+struct RestoreTerminal;
+
+impl Drop for RestoreTerminal {
+    fn drop(&mut self) {
+        let _ = execute!(stdout(), DisableMouseCapture);
+        ratatui::restore();
+    }
+}
+
 fn spawn_input_thread(tx: Sender<Input>, paused: Arc<AtomicBool>) {
     thread::spawn(move || {
         loop {
@@ -819,33 +841,20 @@ fn spawn_input_thread(tx: Sender<Input>, paused: Arc<AtomicBool>) {
                 thread::sleep(Duration::from_millis(20));
                 continue;
             }
-            match event::poll(INPUT_POLL) {
+            let input = match event::poll(INPUT_POLL) {
                 Ok(true) if !paused.load(Ordering::Acquire) => match event::read() {
-                    Ok(ev) => {
-                        if tx.send(Input::Term(ev)).is_err() {
-                            return;
-                        }
-                    }
-                    Err(_) => return,
+                    Ok(ev) => Input::Term(ev),
+                    Err(e) => Input::TermError(e.to_string()),
                 },
-                Ok(_) => {}
-                Err(_) => return,
+                Ok(_) => continue,
+                Err(e) => Input::TermError(e.to_string()),
+            };
+            let stop = matches!(input, Input::TermError(_));
+            if tx.send(input).is_err() || stop {
+                return;
             }
         }
     });
-}
-
-/// Puts `text` on the clipboard through `clip`, the one clipboard path.
-fn copy(text: &str) -> std::io::Result<std::process::ExitStatus> {
-    let mut child = Command::new("clip")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()?;
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(text.as_bytes())?;
-    }
-    child.wait()
 }
 
 #[cfg(test)]

@@ -54,8 +54,9 @@ drawing. `main.rs` is the CLI edge and the only place `anyhow` appears; it resol
 
 ## Rules
 
-- **Self-sufficient.** No server, script or runtime the user has to install. The only programs dat starts are `clip`,
-  `$VISUAL`/`$EDITOR` and `xdg-open`, each on a user action. It assumes no particular terminal, theme or dotfiles.
+- **Self-sufficient.** No server, script or runtime the user has to install. The only programs dat starts are the
+  session's clipboard tool, `$VISUAL`/`$EDITOR` and `xdg-open`, each on a user action. It assumes no particular
+  terminal, theme or dotfiles.
 - **Nothing personal or work-related in this repository.** The public identity is the whole of it: the owner name in
   `LICENSE` and the GitHub handle in URLs and the commit identity. No employer, colleagues, hostnames, home directory
   paths or credentials - in code, comments, fixtures and commit messages alike. The git identity is repo-local; CI runs

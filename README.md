@@ -77,7 +77,8 @@ vi and less, nothing to learn:
 | `?` `q`               | help; quit                                              |
 
 A link to `#anchor` scrolls to the heading, `[[Note]]` opens that note from the same vault, a `.md` path opens in dat,
-and anything else goes to `xdg-open`. Copying pipes the text to a `clip` command on `PATH`.
+and anything else goes to `xdg-open`. Copying uses `wl-copy` on Wayland, `xclip` on X11 or `pbcopy` on macOS; without
+one it goes through the terminal (OSC 52), which tmux passes on with `set -g set-clipboard on`.
 
 ## Styles and themes
 
