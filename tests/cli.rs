@@ -25,7 +25,8 @@ fn dat_env(args: &[&str], stdin: Option<&str>, env: &[(&str, &str)]) -> Output {
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = cmd.spawn().expect("dat starts");
     if let (Some(text), Some(mut pipe)) = (stdin, child.stdin.take()) {
-        pipe.write_all(text.as_bytes()).expect("write stdin");
+        // A run that fails before reading stdin closes the pipe; the exit status says what happened.
+        let _ = pipe.write_all(text.as_bytes());
     }
     child.wait_with_output().expect("dat exits")
 }
