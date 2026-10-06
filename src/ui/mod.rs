@@ -4,7 +4,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style as RStyle};
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 use unicode_width::UnicodeWidthStr;
 
 use crate::app::{App, Mode};
@@ -17,14 +17,14 @@ const HELP: &[(&str, &str)] = &[
     ("g G  Home End", "top, bottom"),
     ("] [", "next, previous heading"),
     ("t", "outline; ↵ jumps, Esc closes"),
-    ("/  n N", "search; next, previous match; Esc clears"),
+    ("/  n N", "search, next, previous; Esc clears"),
     ("click", "follow a link"),
-    ("drag", "select text; it goes to the clipboard on release"),
-    ("Backspace", "back to the note a link was followed from"),
-    ("y", "copy the selection, or the code block at the top of the screen"),
-    ("e", "open the file in $EDITOR at the top line"),
+    ("drag", "select text; the release copies it"),
+    ("Backspace", "back to the note a link came from"),
+    ("y", "copy the selection, else the top code block"),
+    ("e", "open the file at the top line in $EDITOR"),
     ("r", "reload the file"),
-    ("w", "follow the file on disk and reload on change (on by default)"),
+    ("w", "toggle following the file on disk"),
     ("T", "cycle the theme"),
     ("?", "this help"),
     ("q", "quit"),
@@ -141,10 +141,18 @@ fn draw_help(frame: &mut Frame, area: Rect, theme: &Theme) {
             ])
         })
         .collect();
-    let width = rows.iter().map(Line::width).max().unwrap_or(40) as u16 + 3;
-    let rect = centred(area, width, HELP.len() as u16 + 2);
+    let width = (rows.iter().map(Line::width).max().unwrap_or(40) + 3).min(usize::from(area.width));
+    // A pane narrower than the box wraps each entry rather than clipping it.
+    let inner = width.saturating_sub(2).max(1);
+    let height: usize = rows.iter().map(|r| r.width().div_ceil(inner).max(1)).sum();
+    let rect = centred(area, width as u16, (height + 2) as u16);
     frame.render_widget(Clear, rect);
-    frame.render_widget(Paragraph::new(rows).block(popup_block(theme, " Keys ")), rect);
+    frame.render_widget(
+        Paragraph::new(rows)
+            .wrap(Wrap { trim: false })
+            .block(popup_block(theme, " Keys ")),
+        rect,
+    );
 }
 
 fn popup_block(theme: &Theme, title: &'static str) -> Block<'static> {
