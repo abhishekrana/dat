@@ -36,13 +36,20 @@ pub struct CellStyle {
     pub strike: bool,
 }
 
+/// Where a link points: a markdown target as written, or a wikilink's `Note#Heading`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Link {
+    Href(String),
+    Wiki(String),
+}
+
 /// A run of text in one style, with the source it came from and the link it belongs to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Segment {
     pub text: String,
     pub style: CellStyle,
     pub src: Option<Span>,
-    pub link: Option<Arc<str>>,
+    pub link: Option<Arc<Link>>,
 }
 
 impl Segment {

@@ -3,7 +3,7 @@
 mod parse;
 mod tags;
 
-pub use parse::parse;
+pub use parse::{parse, slug};
 
 /// Byte range in the buffer, end exclusive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]

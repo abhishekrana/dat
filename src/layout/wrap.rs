@@ -5,7 +5,7 @@ use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use super::{CellStyle, Segment};
+use super::{CellStyle, Link, Segment};
 use crate::doc::{Inline, Span};
 use crate::style::{InlineRule, Style};
 
@@ -17,7 +17,7 @@ pub(super) struct Word {
     text: String,
     style: CellStyle,
     src: Option<Span>,
-    link: Option<Arc<str>>,
+    link: Option<Arc<Link>>,
     width: usize,
     kind: Kind,
 }
@@ -36,7 +36,7 @@ pub(super) fn words(inlines: &[Inline], base: CellStyle, style: &Style) -> Vec<W
     out
 }
 
-fn flatten(inlines: &[Inline], base: CellStyle, link: Option<&Arc<str>>, style: &Style, out: &mut Vec<Word>) {
+fn flatten(inlines: &[Inline], base: CellStyle, link: Option<&Arc<Link>>, style: &Style, out: &mut Vec<Word>) {
     for inline in inlines {
         match inline {
             Inline::Text(text, span) => push_text(text, *span, base, link, out),
@@ -54,12 +54,12 @@ fn flatten(inlines: &[Inline], base: CellStyle, link: Option<&Arc<str>>, style: 
             Inline::Emph(inner, _) => flatten(inner, apply(base, &style.emph), link, style, out),
             Inline::Strike(inner, _) => flatten(inner, apply(base, &style.strike), link, style, out),
             Inline::Link { text, href, .. } => {
-                let href: Arc<str> = Arc::from(href.as_str());
+                let href = Arc::new(Link::Href(href.clone()));
                 flatten(text, apply(base, &style.link), Some(&href), style, out);
             }
             Inline::WikiLink { target, alias, span } => {
                 let shown = alias.as_deref().unwrap_or(target);
-                let target: Arc<str> = Arc::from(format!("wiki:{target}"));
+                let target = Arc::new(Link::Wiki(target.clone()));
                 push_text(shown, *span, apply(base, &style.wikilink), Some(&target), out);
             }
             Inline::Tag(name, span) => {
@@ -117,7 +117,7 @@ fn apply(base: CellStyle, rule: &InlineRule) -> CellStyle {
     }
 }
 
-fn push_text(text: &str, span: Span, style: CellStyle, link: Option<&Arc<str>>, out: &mut Vec<Word>) {
+fn push_text(text: &str, span: Span, style: CellStyle, link: Option<&Arc<Link>>, out: &mut Vec<Word>) {
     let mut offset = 0;
     for piece in text.split_inclusive(char::is_whitespace) {
         let trimmed = piece.trim_end_matches(char::is_whitespace);
@@ -154,7 +154,7 @@ impl Word {
     }
 }
 
-fn word(text: String, style: CellStyle, src: Option<Span>, link: Option<Arc<str>>) -> Word {
+fn word(text: String, style: CellStyle, src: Option<Span>, link: Option<Arc<Link>>) -> Word {
     Word {
         width: text.width(),
         text,

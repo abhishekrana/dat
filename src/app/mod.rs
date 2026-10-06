@@ -22,7 +22,7 @@ use tracing::{debug, info, warn};
 
 use crate::buffer::Buffer;
 use crate::doc::{self, Block, Document};
-use crate::layout::{Layouter, Page};
+use crate::layout::{Layouter, Link, Page};
 use crate::style::Style;
 use crate::theme::{self, Theme};
 use links::Action;
@@ -410,8 +410,7 @@ impl App {
         for s in &line.segments {
             let w = s.width();
             if at < w {
-                if let Some(target) = &s.link {
-                    let target = target.clone();
+                if let Some(target) = s.link.clone() {
                     self.follow(&target);
                 }
                 return;
@@ -439,8 +438,8 @@ impl App {
         self.selection
     }
 
-    fn follow(&mut self, link: &str) {
-        info!(link, "follow");
+    fn follow(&mut self, link: &Link) {
+        info!(?link, "follow");
         match links::classify(link) {
             Action::Anchor(id) => self.jump_to_anchor(&id),
             Action::Wiki { name, heading } => match links::resolve_wiki(&name, self.buffer.dir()) {
@@ -476,9 +475,8 @@ impl App {
                     self.history.push(p);
                 }
                 self.load(buffer);
-                if let Some(h) = heading {
-                    let id = h.to_lowercase().replace(' ', "-");
-                    self.jump_to_anchor(&id);
+                if let Some(id) = heading {
+                    self.jump_to_anchor(id);
                 }
             }
             Err(e) => {
@@ -982,6 +980,34 @@ mod tests {
         assert_eq!(a.notice(), Some("note not found: Missing note"));
         click(&mut a, left, 2);
         assert!(a.notice().is_none(), "plain text is not a link");
+    }
+
+    #[test]
+    fn a_wikilink_lands_on_the_heading_its_text_names() {
+        let dir = std::env::temp_dir().join(format!("dat-wikihead-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("dir");
+        let other = "# Other\n\nintro\n\ntext\n\ntext\n\n## Disks & RAID\n\na\n\nb\n\nc\n\nd\n";
+        std::fs::write(dir.join("Other.md"), other).expect("write");
+        let here = dir.join("Here.md");
+        std::fs::write(
+            &here,
+            "# Here\n\n[[Other#Disks & RAID]] and [[#Later]]\n\nx\n\nx\n\n## Later\n\na\n\nb\n\nc\n\nd\n",
+        )
+        .expect("write");
+        let style = crate::style::load("github", None).expect("style");
+        let mut a = App::new(
+            Buffer::from_path(&here).expect("buffer"),
+            style,
+            Theme::default_theme().expect("theme"),
+        );
+        a.resize(60, 5);
+        let left = a.page().left;
+        click(&mut a, left + 25, 2);
+        assert_eq!(a.section(), "Later", "[[#Later]] is a heading in this note");
+        a.update(Msg::Top);
+        click(&mut a, left + 2, 2);
+        assert_eq!(a.section(), "Disks & RAID", "{:?}", a.notice());
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

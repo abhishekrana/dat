@@ -3,10 +3,13 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use crate::doc::slug;
+use crate::layout::Link;
+
 /// How far below a vault root the wikilink search descends.
 const WIKI_DEPTH: usize = 8;
 
-/// What a link target asks for.
+/// What a link target asks for. Every heading is an id, as `doc::slug` makes them.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     /// A note in the vault, by name, with an optional heading.
@@ -20,14 +23,11 @@ pub enum Action {
 }
 
 #[must_use]
-pub fn classify(link: &str) -> Action {
-    if let Some(rest) = link.strip_prefix("wiki:") {
-        let (name, heading) = split_heading(rest);
-        return Action::Wiki {
-            name: name.to_owned(),
-            heading,
-        };
-    }
+pub fn classify(link: &Link) -> Action {
+    let link = match link {
+        Link::Wiki(target) => return classify_wiki(target),
+        Link::Href(href) => href.as_str(),
+    };
     if let Some(id) = link.strip_prefix('#') {
         return Action::Anchor(id.to_owned());
     }
@@ -40,11 +40,47 @@ pub fn classify(link: &str) -> Action {
         .is_some_and(|e| e.eq_ignore_ascii_case("md"))
     {
         return Action::Note {
-            path: PathBuf::from(path),
+            path: PathBuf::from(percent_decode(path)),
             heading,
         };
     }
     Action::External(link.to_owned())
+}
+
+/// `[[Note#Heading]]` names a heading by its text; `[[#Heading]]` is one in this document.
+fn classify_wiki(target: &str) -> Action {
+    let (name, heading) = split_heading(target);
+    let heading = heading.map(|h| slug(&h));
+    match heading {
+        Some(id) if name.is_empty() => Action::Anchor(id),
+        heading => Action::Wiki {
+            name: name.to_owned(),
+            heading,
+        },
+    }
+}
+
+/// Decodes `%XX` escapes, as in a link to `My%20Note.md`; text that does not decode stays as written.
+fn percent_decode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = |b: u8| char::from(b).to_digit(16);
+        if bytes[i] == b'%'
+            && let (Some(hi), Some(lo)) = (
+                bytes.get(i + 1).copied().and_then(hex),
+                bytes.get(i + 2).copied().and_then(hex),
+            )
+        {
+            out.push((hi * 16 + lo) as u8);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).unwrap_or_else(|_| text.to_owned())
 }
 
 fn split_heading(target: &str) -> (&str, Option<String>) {
@@ -114,23 +150,48 @@ mod tests {
 
     #[test]
     fn links_classify_by_shape() {
+        let href = |s: &str| Link::Href(s.to_owned());
+        let wiki = |s: &str| Link::Wiki(s.to_owned());
         assert_eq!(
-            classify("wiki:Server layout#Disks"),
+            classify(&wiki("Server layout#Disks & RAID")),
             Action::Wiki {
                 name: "Server layout".into(),
-                heading: Some("Disks".into())
+                heading: Some("disks-raid".into())
             }
         );
-        assert_eq!(classify("#schedule"), Action::Anchor("schedule".into()));
+        assert_eq!(classify(&wiki("#What's new?")), Action::Anchor("whats-new".into()));
+        assert_eq!(classify(&href("#schedule")), Action::Anchor("schedule".into()));
         assert_eq!(
-            classify("notes/other.md"),
+            classify(&href("wiki:Foo")),
+            Action::External("wiki:Foo".into()),
+            "a markdown link is never a wikilink"
+        );
+        assert_eq!(
+            classify(&href("My%20Notes/caf%C3%A9.md#top")),
+            Action::Note {
+                path: "My Notes/café.md".into(),
+                heading: Some("top".into())
+            }
+        );
+        assert_eq!(
+            classify(&href("50%.md")),
+            Action::Note {
+                path: "50%.md".into(),
+                heading: None
+            }
+        );
+        assert_eq!(
+            classify(&href("notes/other.md")),
             Action::Note {
                 path: "notes/other.md".into(),
                 heading: None
             }
         );
-        assert!(matches!(classify("https://example.com/a.md"), Action::External(_)));
-        assert!(matches!(classify("image.png"), Action::External(_)));
+        assert!(matches!(
+            classify(&href("https://example.com/a.md")),
+            Action::External(_)
+        ));
+        assert!(matches!(classify(&href("image.png")), Action::External(_)));
     }
 
     #[test]

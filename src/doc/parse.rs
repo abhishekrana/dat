@@ -291,17 +291,9 @@ impl Context<'_> {
         out.into_iter().map(|(_, b)| b).collect()
     }
 
-    /// GitHub-style heading id, unique within the document.
+    /// The heading's `slug`, made unique within the document.
     fn slug(&mut self, text: &str) -> String {
-        let mut slug = String::with_capacity(text.len());
-        for ch in text.chars() {
-            if ch.is_alphanumeric() {
-                slug.extend(ch.to_lowercase());
-            } else if (ch == ' ' || ch == '-') && !slug.ends_with('-') {
-                slug.push('-');
-            }
-        }
-        let slug = slug.trim_matches('-').to_owned();
+        let slug = slug(text);
         let n = self.slugs.entry(slug.clone()).or_insert(0);
         let unique = if *n == 0 { slug.clone() } else { format!("{slug}-{n}") };
         *n += 1;
@@ -329,6 +321,20 @@ fn front_matter_fields(raw: &str) -> Vec<(String, String)> {
             None => (l.to_owned(), String::new()),
         })
         .collect()
+}
+
+/// GitHub-style heading id: lowercase alphanumerics, one hyphen for each run of spaces and hyphens.
+#[must_use]
+pub fn slug(text: &str) -> String {
+    let mut slug = String::with_capacity(text.len());
+    for ch in text.chars() {
+        if ch.is_alphanumeric() {
+            slug.extend(ch.to_lowercase());
+        } else if (ch == ' ' || ch == '-') && !slug.ends_with('-') {
+            slug.push('-');
+        }
+    }
+    slug.trim_matches('-').to_owned()
 }
 
 #[cfg(test)]

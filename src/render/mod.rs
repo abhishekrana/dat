@@ -5,7 +5,7 @@ use std::fmt::Write as _;
 use ratatui::style::{Color, Modifier, Style as RStyle};
 use ratatui::text::{Line as RLine, Span as RSpan};
 
-use crate::layout::{CellStyle, Line, Page};
+use crate::layout::{CellStyle, Line, Link, Page};
 use crate::theme::{Rgb, Theme};
 
 /// The page as plain text, one row per line, margins included.
@@ -31,7 +31,10 @@ pub fn ansi(page: &Page, theme: &Theme, hyperlinks: bool) -> String {
         push_margin(&mut out, page.left);
         for s in &line.segments {
             let sgr = sgr(s.style, theme);
-            let link = s.link.as_deref().filter(|l| hyperlinks && !l.starts_with("wiki:"));
+            let link = match s.link.as_deref() {
+                Some(Link::Href(url)) if hyperlinks => Some(url),
+                _ => None,
+            };
             if let Some(url) = link {
                 let _ = write!(out, "\x1b]8;;{url}\x1b\\");
             }
