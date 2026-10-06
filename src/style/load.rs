@@ -139,7 +139,7 @@ mod tests {
         assert_eq!(s.table.lines, TableLines::Box);
         assert!(s.callout.icon);
         assert_eq!(s.callout.bar, "▌");
-        assert_eq!(s.callout.title_fg, crate::theme::Role::Accent, "inherited");
+        assert_eq!(s.callout.kinds.tip, crate::theme::Role::Done, "inherited");
     }
 
     #[test]

@@ -16,8 +16,6 @@ pub struct Style {
     pub measure: Measure,
     /// Where the column sits when the pane is wider than the measure.
     pub align: Align,
-    /// Outline rail on the left (layout switch; drawn from phase 5).
-    pub rail: bool,
     pub h1: HeadingRule,
     pub h2: HeadingRule,
     pub h3: HeadingRule,
@@ -157,9 +155,8 @@ pub struct QuoteRule {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CalloutRule {
+    /// Drawn, with the title, in the kind's colour from `kinds`.
     pub bar: String,
-    pub bar_fg: Role,
-    pub title_fg: Role,
     /// Draw the kind's icon before the title.
     pub icon: bool,
     #[serde(default)]
@@ -196,7 +193,6 @@ pub struct ListRule {
     pub bullet: String,
     pub bullet_fg: Role,
     pub nested: String,
-    pub indent: u8,
 }
 
 #[derive(Debug, Clone, Deserialize)]

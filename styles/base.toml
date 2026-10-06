@@ -3,7 +3,6 @@
 name = "Base"
 measure = "full" # or a cell count, e.g. 80
 align = "left"
-rail = false
 
 h1 = { fg = "emphasis", bold = true, italic = false, rule = "none", above = 2, below = 1 }
 h2 = { fg = "emphasis", bold = true, italic = false, rule = "none", above = 1, below = 1 }
@@ -24,7 +23,7 @@ code_span = { fg = "changes", pad = 0 }
 
 code = { bg = "surface", pad = 1, label = "none", above = 0, below = 1 }
 quote = { bar = "│", bar_fg = "border", fg = "fg", italic = false }
-list = { bullet = "•", bullet_fg = "muted", nested = "◦", indent = 2 }
+list = { bullet = "•", bullet_fg = "muted", nested = "◦" }
 task = { done = "✓", todo = "○", done_fg = "done", todo_fg = "muted", done_text = "muted" }
 table = { lines = "rules", header_bold = true, header_rule = true, line_fg = "border" }
 rule = { glyph = "─", fg = "border", width = "column" }
@@ -34,8 +33,6 @@ image = { placeholder = "󰥶", fg = "muted" } # nf-md-image_outline
 
 [callout]
 bar = "▎"
-bar_fg = "accent"
-title_fg = "accent"
 icon = false
 kinds = { note = "accent", tip = "done", important = "changes", warning = "asking", caution = "blocked" }
 # Nerd Font: information_outline, lightbulb_outline, message_alert_outline, alert_outline, alert_octagon_outline
