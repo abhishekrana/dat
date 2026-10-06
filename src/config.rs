@@ -1,4 +1,4 @@
-//! The user's `config.toml`: defaults for what the flags set. A missing file is all defaults; an unknown key is an error.
+//! The user's `config.toml`: defaults for what the flags set. A missing file is all defaults; an unknown key fails.
 
 use std::path::{Path, PathBuf};
 

@@ -2,8 +2,12 @@
 # The gate. CI runs this too, so passing it locally means CI passes.
 #
 # Optional tools are reported as skipped rather than failing, so the script
-# works on a fresh clone. scripts/install-dev-tools.sh installs them.
+# works on a fresh clone; --strict fails on any skip, as a release requires.
+# scripts/install-dev-tools.sh installs them.
 set -eu
+
+strict=0
+[ "${1:-}" = "--strict" ] && strict=1
 
 cd "$(dirname "$0")/.."
 
@@ -24,6 +28,27 @@ rustup toolchain list 2>/dev/null | grep -q "^$RUST_VERSION" || {
     exit 1
 }
 cargo "+$RUST_VERSION" --version
+
+# Conventions CLAUDE.md states, checked rather than trusted.
+step "conventions"
+files=$(git ls-files '*.rs' '*.toml' '*.sh' '*.yml' '*.env')
+# shellcheck disable=SC2086 # one file per word
+long=$(LC_ALL=C.UTF-8 grep -nE '^.{121,}' $files || true)
+[ -z "$long" ] || {
+    printf 'over 120 columns:\n%s\n' "$long" >&2
+    exit 1
+}
+loose=$(awk '/^\[/ { deps = /^\[(dev-)?dependencies\]/; next } deps && /^[a-z0-9_-]+ = / && !/"=/' Cargo.toml)
+[ -z "$loose" ] || {
+    printf 'dependency not pinned with "=x.y.z":\n%s\n' "$loose" >&2
+    exit 1
+}
+hex=$(git grep -nE '#[0-9a-fA-F]{6}\b' -- src styles ':!src/theme/palette.toml' || true)
+[ -z "$hex" ] || {
+    printf 'a colour outside src/theme/palette.toml - name a role instead:\n%s\n' "$hex" >&2
+    exit 1
+}
+echo "120 columns, exact pins, colours only in the palette"
 
 step "fmt"
 cargo "+$RUST_VERSION" fmt --all --check
@@ -77,4 +102,8 @@ fi
 printf '\n\033[1mpassed\033[0m\n'
 if [ -n "$skipped" ]; then
     printf 'skipped:\n%s' "$skipped"
+    [ "$strict" = 0 ] || {
+        echo "--strict: nothing may be skipped" >&2
+        exit 1
+    }
 fi

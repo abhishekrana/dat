@@ -67,7 +67,7 @@ drawing. `main.rs` is the CLI edge and the only place `anyhow` appears; it resol
 Run in order, stop at the first failure.
 
 1. **Preconditions.** `git status --porcelain` empty, `git fetch && git rev-list --count origin/main..main` is `0`.
-2. **Gate.** `scripts/check.sh` passes with **nothing skipped**.
+2. **Gate.** `scripts/check.sh --strict` passes; it fails if any step was skipped.
 3. **CI green on `HEAD`.** Local success is not evidence; a cancelled run is not a pass.
    ```sh
    curl -s "https://api.github.com/repos/abhishekrana/dat/actions/runs?head_sha=$(git rev-parse HEAD)" \

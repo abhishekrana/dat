@@ -8,12 +8,18 @@ fn dat(args: &[&str], stdin: Option<&str>) -> Output {
     dat_env(args, stdin, &[])
 }
 
-/// Runs the binary with no `DAT_THEME` and no config file unless `env` sets them.
+/// Runs the binary with no `DAT_THEME` and no config file unless `env` sets them; an empty value unsets the variable.
 fn dat_env(args: &[&str], stdin: Option<&str>, env: &[(&str, &str)]) -> Output {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_dat"));
     cmd.env_remove("DAT_THEME")
         .env("DAT_CONFIG", "/no/such/dat/config.toml");
-    cmd.envs(env.iter().copied());
+    for (key, value) in env {
+        if value.is_empty() {
+            cmd.env_remove(key);
+        } else {
+            cmd.env(key, value);
+        }
+    }
     cmd.args(args)
         .stdin(if stdin.is_some() { Stdio::piped() } else { Stdio::null() });
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -140,4 +146,37 @@ fn an_unknown_theme_in_the_config_names_the_config() {
     assert_eq!(out.status.code(), Some(1));
     let err = stderr(&out);
     assert!(err.contains("config.toml") && err.contains("catppuccin-mocha"), "{err}");
+}
+
+/// A config dir holding `config.toml` with a dark theme and a user style named `mine`.
+fn config_dir(name: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("dat-cli-xdg-{name}-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("dat/styles")).expect("dirs");
+    std::fs::write(dir.join("dat/config.toml"), "theme = \"solarized-dark\"\n").expect("config");
+    std::fs::write(dir.join("dat/styles/mine.toml"), "extends = \"github\"\n").expect("style");
+    dir
+}
+
+#[test]
+fn the_config_and_user_styles_are_found_under_xdg_config_home() {
+    let xdg = config_dir("xdg");
+    let xdg = xdg.to_string_lossy();
+    let env = [("DAT_CONFIG", ""), ("XDG_CONFIG_HOME", xdg.as_ref())];
+    assert_eq!(ansi(&[], &env), ansi(&["--theme", "solarized-dark"], &[]));
+    let out = dat_env(&["--list-styles"], None, &env);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("mine  (user)"), "{text}");
+}
+
+#[test]
+fn without_xdg_config_home_the_config_is_under_home() {
+    let home = std::env::temp_dir().join(format!("dat-cli-home-{}", std::process::id()));
+    let config = config_dir("home");
+    std::fs::create_dir_all(&home).expect("home");
+    let dot_config = home.join(".config");
+    let _ = std::fs::remove_dir_all(&dot_config);
+    std::fs::rename(&config, &dot_config).expect("move");
+    let home = home.to_string_lossy();
+    let env = [("DAT_CONFIG", ""), ("XDG_CONFIG_HOME", ""), ("HOME", home.as_ref())];
+    assert_eq!(ansi(&[], &env), ansi(&["--theme", "solarized-dark"], &[]));
 }
