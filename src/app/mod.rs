@@ -559,10 +559,12 @@ impl App {
         self.clamp();
     }
 
-    fn remember_position(&mut self) {
+    fn remember_position(&self) {
         let line = self.top_line();
-        if let (Some(p), Some(pos)) = (self.buffer.path(), &mut self.positions) {
-            pos.set(p, line);
+        if let (Some(p), Some(pos)) = (self.buffer.path(), &self.positions)
+            && let Err(e) = pos.set(p, line)
+        {
+            warn!(error = %e, "position not saved");
         }
     }
 
@@ -721,11 +723,6 @@ impl App {
         self.apply_watch();
         let result = self.event_loop(&mut terminal, &rx);
         self.remember_position();
-        if let Some(p) = &mut self.positions
-            && let Err(e) = p.save()
-        {
-            warn!(error = %e, "positions not saved");
-        }
         execute!(stdout(), DisableMouseCapture)?;
         ratatui::restore();
         result
