@@ -31,7 +31,7 @@ Not a browser (no history stack), not a file manager, not a notes app.
   scroll, anything else goes to `xdg-open`.
 - Outline (`t`) as an overlay, heading jumps, in-document search (`/`, `n`, `N`), help (`?`).
 - Watch and reload, `--inline` to stdout for fzf and yazi previews, stdin.
-- One built-in style (`github`), user styles from `~/.config/dat/styles/`, `--style`, `S` cycles at runtime.
+- One built-in style (`github`), user styles from `~/.config/dat/styles/`, `--style`.
 - Theme by role: `--theme <flavor>`, `DAT_THEME`, default `solarized-light`.
 - `~/.config/dat/config.toml` sets `theme`, `style` and `watch`; a flag, then an environment variable, overrides it.
 
@@ -40,7 +40,7 @@ Not a browser (no history stack), not a file manager, not a notes app.
 - Images via the Kitty protocol with unicode placeholders and tmux passthrough; halfblocks as fallback.
 - Mermaid rendered as an image; math as an image with a Unicode fallback.
 - Larger headings when Ghostty renders the text sizing protocol (1.3 parses it, does not draw it; tmux drops it).
-- Reading position memory, a file picker.
+- A file picker.
 
 **Never in the viewer**: editing UI. Editing is a separate mode built on the same model when it is wanted.
 
@@ -100,66 +100,44 @@ not a comrak extension; a small pass over `Inline::Text` splits `#word` out, ski
 
 ### Layout
 
-- **Measure.** The style sets `measure` (GitHub: 80) and `align` (`left`, the default: a 2-cell gutter; or `center`). A
-  pane narrower than the measure forces the column to its width minus 2 cells each side. The outline rail, when a style
-  turns it on, takes its width from the left first.
+- **Measure.** The style sets `measure` (`full`, the pane's width, in GitHub; or a cell count) and `align` (`left`, the
+  default: a 2-cell gutter; or `center`). A pane narrower than the measure forces the column to its width minus 2 cells
+  each side.
 - **Rhythm.** A style says how many blank rows precede each element; the engine never inserts its own.
 - **Wrapping** is per grapheme cluster using `unicode-width`, greedy, with a `Cell` per column so wide characters and
-  emoji occupy two. Code never wraps: long lines are clipped with `→` in the last cell and pan with `h`/`l`.
+  emoji occupy two. Code never wraps: long lines are clipped with `→` in the last cell.
 - **Tables** get fair-share column widths. A table wider than the measure shrinks its widest column first, and a cell
   wraps inside its column, so a row grows taller rather than losing text. No modal in v1.
 - **Inline styling is per span**, so a link, a code span or an emphasis is styled on exactly its cells, and every cell
   keeps the id of the inline it came from.
-- **Relayout** happens on resize and on reload only, all blocks, cached by `(block hash, width)`. At document scale this
-  is milliseconds; measured before anything smarter is added.
+- **Relayout** happens on resize, reload and a theme change only, all blocks, cached by `(block hash, width)`. At
+  document scale this is milliseconds; measured before anything smarter is added.
 
 ### Style files
 
 A style is TOML. Keys are element names; values are rules. Colours are palette roles. Unknown keys fail loudly, so a
 typo cannot silently fall back to a default.
 
+`styles/base.toml` sets every element; a style names only what it changes. The built-in GitHub style, verbatim:
+
 ```toml
-# ~/.config/dat/styles/github.toml (the built-in, verbatim)
-name    = "GitHub"
-extends = "base"  # every built-in inherits base; a user style may extend any built-in
-measure = "full"  # or a cell count, e.g. 80
-align   = "left"  # or "center", for a fixed measure
-rail    = false   # the outline rail is a layout switch, not an element
+# The rendering everyone already reads: rules across the column under H1 and H2, boxed tables, pills for code.
+name = "GitHub"
+extends = "base"
 
-h1 = { fg = "emphasis", bold = true, rule = "column", above = 2, below = 1 }
-h2 = { fg = "emphasis", bold = true, rule = "column", above = 1, below = 1 }
-h3 = { fg = "emphasis", bold = true, rule = "none", above = 1, below = 1 }
-h4 = { fg = "emphasis", bold = true, rule = "none", above = 1, below = 0 }
+h1 = { rule = "column", below = 0 }
+h2 = { rule = "column", below = 0 }
 
-paragraph = { fg = "fg", below = 1 }
-strong    = { fg = "emphasis", bold = true }
-emph      = { italic = true }
-strike    = { fg = "muted", strike = true }
+wikilink = { underline = true }
 
-link      = { fg = "accent", underline = true }
-wikilink  = { fg = "accent", underline = true }
-tag       = { fg = "muted" }
-code_span = { fg = "changes", pad = 0 }
-
-code    = { bg = "surface", pad = 1, label = "none", above = 0, below = 1 }
-quote   = { bar = "▌", bar_fg = "muted", fg = "muted" }
-
-list = { bullet = "•", bullet_fg = "muted", nested = "◦", indent = 2 }
-task = { done = "󰄲", todo = "󰄱", done_fg = "done", todo_fg = "muted", done_text = "muted" }
-
-table        = { lines = "box", header_bold = true, header_rule = true, line_fg = "border" }
-rule         = { glyph = "─", fg = "border", width = "column" }
+quote = { bar = "▌", bar_fg = "muted", fg = "muted" }
+task = { done = "󰄲", todo = "󰄱" } # Nerd Font checkboxes (nf-md-checkbox_marked / _blank_outline)
+table = { lines = "box" }
 front_matter = { as = "table" }
-footnote     = { marker = "superscript", fg = "accent", text_fg = "muted" }
-image        = { placeholder = "󰥶", fg = "muted" }  # v1 draws "󰥶 alt (640×360)" on one line
 
 [callout]
 bar = "▌"
-bar_fg = "accent"
-title_fg = "accent"
 icon = true
-kinds = { note = "accent", tip = "done", important = "changes", warning = "asking", caution = "blocked" }
-icons = { note = "󰋽", tip = "󰌶", important = "󰨄", warning = "󰀪", caution = "󰳦" }
 ```
 
 Rule fields are a closed set per element, checked at load. `rule` on headings is `none | words | column`; `lines` on
@@ -196,7 +174,6 @@ vi and less, nothing to learn:
 | `e`                   | open the file at the top line in `$VISUAL` or `$EDITOR`   |
 | `r` `w`               | reload; toggle following the file on disk (on by default) |
 | `T`                   | cycle theme through the palette's flavors                 |
-| `S`                   | cycle style (deferred: one built-in style for now)        |
 | `?` `q`               | help; quit                                                |
 
 Following a link: `#anchor` scrolls to the heading, `[[Note]]` opens the note beside this file or anywhere under the
@@ -248,14 +225,11 @@ Modern, boring Rust; the community's defaults, not ours.
   use, nothing else.
 - Prefer a maintained crate over our own: ratatui, crossterm, comrak, ropey, syntect + two-face, unicode-width, clap
   (derive), notify (watch), serde + toml, insta (snapshots).
-- **Tests are snapshots.** The mockups' sample note is the fixture; each built-in style has an `--inline` snapshot at 80
-  and 60 columns, so a rendering change is a reviewed diff. Wrapping, width and table allocation have unit tests.
-  Nothing tests the live terminal.
+- **Tests are snapshots.** The sample note is the fixture: the GitHub style has `--inline` snapshots at 100 and 64
+  columns and one per theme, and an edge-case fixture has its own, so a rendering change is a reviewed diff. Wrapping,
+  width and table allocation have unit tests. Nothing tests the live terminal.
 - Comments say what, one line. History goes in commit messages.
 
 ## Open questions
 
 - Where a wikilink resolves when the file is outside a vault: the file's directory, then nothing. Good enough for v1.
-- Whether `--inline` should emit OSC 8 (yes for a terminal, no for a pipe; detect the TTY).
-- The Docs look's rail width and whether the rail scrolls with the page or stays fixed. Decided when that style is
-  written, not now.

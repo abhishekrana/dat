@@ -118,15 +118,10 @@ impl Layouter {
         }
     }
 
-    /// Drops every cached row; call when the style changes.
-    pub fn clear(&mut self) {
-        self.cache.clear();
-    }
-
     /// Switches the code highlighting theme; cached rows carry colours, so they are dropped.
     pub fn set_theme(&mut self, theme: &Theme) {
         self.highlighter = Highlighter::for_theme(theme);
-        self.clear();
+        self.cache.clear();
     }
 
     pub fn layout(&mut self, doc: &Document, style: &Style, width: u16) -> Page {
