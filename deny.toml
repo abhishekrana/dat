@@ -1,0 +1,33 @@
+# cargo-deny: advisories, licences, bans and sources over the dependency tree.
+# Run with `cargo deny check`.
+
+[advisories]
+yanked = "deny"
+ignore = [
+  # Unmaintained, not vulnerable; both reach dat only through syntect, the highlighter bat also ships.
+  { id = "RUSTSEC-2024-0320", reason = "yaml-rust, via syntect" },
+  { id = "RUSTSEC-2025-0141", reason = "bincode, via syntect" },
+]
+
+[licenses]
+# Permissive licences only, as is this crate.
+allow = [
+  "Apache-2.0",
+  "BSD-2-Clause",
+  # notify, the file watcher.
+  "CC0-1.0",
+  "ISC",
+  "MIT",
+  "Unicode-3.0",
+  "Unicode-DFS-2016",
+  "Zlib",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
