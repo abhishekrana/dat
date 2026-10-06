@@ -1,14 +1,18 @@
 [package]
-name = "folio"
+name = "dat"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.98"
 description = "A markdown reader for the terminal that reads like a page"
 license = "MIT"
+repository = "https://github.com/abhishekrana/dat"
+readme = "README.md"
+keywords = ["markdown", "terminal", "reader", "tui", "pager"]
+categories = ["command-line-utilities"]
 publish = false
 
 [[bin]]
-name = "folio"
+name = "dat"
 path = "src/main.rs"
 
 # Every dependency is pinned to the exact latest stable release; bumps are their own commits.

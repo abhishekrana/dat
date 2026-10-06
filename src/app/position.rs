@@ -88,7 +88,7 @@ mod tests {
 
     #[test]
     fn positions_round_trip_and_prune_the_oldest() {
-        let dir = std::env::temp_dir().join(format!("folio-pos-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("dat-pos-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("dir");
         let note = dir.join("note.md");
         std::fs::write(&note, "x").expect("note");

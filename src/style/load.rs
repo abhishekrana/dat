@@ -41,13 +41,13 @@ pub fn builtins() -> impl Iterator<Item = &'static str> {
     BUILTIN.iter().map(|(n, _)| *n)
 }
 
-/// `~/.config/folio/styles`, where a user's own styles live.
+/// `~/.config/dat/styles`, where a user's own styles live.
 #[must_use]
 pub fn user_styles_dir() -> Option<PathBuf> {
     let base = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
-    Some(base.join("folio").join("styles"))
+    Some(base.join("dat").join("styles"))
 }
 
 /// Loads a style by name, resolving its `extends` chain.
@@ -135,7 +135,7 @@ mod tests {
 
     #[test]
     fn unknown_key_is_an_error() {
-        let dir = std::env::temp_dir().join(format!("folio-style-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("dat-style-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("temp dir");
         std::fs::write(dir.join("typo.toml"), "extends = \"github\"\nh1 = { bolt = true }\n").expect("write");
         let err = load("typo", Some(&dir)).expect_err("unknown field rejected");

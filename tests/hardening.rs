@@ -3,11 +3,11 @@
 
 use std::time::{Duration, Instant};
 
-use folio::app::{App, Msg};
-use folio::buffer::Buffer;
-use folio::layout::{Layouter, Page};
-use folio::theme::Theme;
-use folio::{doc, render, style};
+use dat::app::{App, Msg};
+use dat::buffer::Buffer;
+use dat::layout::{Layouter, Page};
+use dat::theme::Theme;
+use dat::{doc, render, style};
 use unicode_width::UnicodeWidthStr;
 
 const SAMPLE: &str = include_str!("fixtures/sample.md");

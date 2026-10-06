@@ -1,4 +1,4 @@
-//! Palette roles and the flavors that give them colours, read from `design/palette.toml` at build time.
+//! Palette roles and the flavors that give them colours, read from `palette.toml` at build time.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 
 use serde::Deserialize;
 
-const PALETTE: &str = include_str!("../../../../design/palette.toml");
+const PALETTE: &str = include_str!("palette.toml");
 
 /// A semantic colour role; styles name these, never hexes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]

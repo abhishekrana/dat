@@ -8,12 +8,12 @@ use anyhow::{Context, bail};
 use clap::{Parser, ValueEnum};
 use tracing::{error, info};
 
-use folio::app::App;
-use folio::buffer::Buffer;
-use folio::layout::Layouter;
-use folio::style::{self, StyleError};
-use folio::theme::Theme;
-use folio::{doc, render};
+use dat::app::App;
+use dat::buffer::Buffer;
+use dat::layout::Layouter;
+use dat::style::{self, StyleError};
+use dat::theme::Theme;
+use dat::{doc, render};
 
 /// Width for --inline when neither a flag, fzf nor a terminal says otherwise.
 const DEFAULT_INLINE_WIDTH: u16 = 120;
@@ -22,7 +22,7 @@ const FZF_WIDTH_ENV: &str = "FZF_PREVIEW_COLUMNS";
 
 /// A markdown reader for the terminal that reads like a page.
 #[derive(Debug, Parser)]
-#[command(name = "folio", version, about)]
+#[command(name = "dat", version, about)]
 struct Args {
     /// Markdown file; stdin when absent and not a terminal.
     file: Option<PathBuf>,
@@ -32,11 +32,11 @@ struct Args {
     /// Output for --inline: auto is ansi on a terminal and plain in a pipe.
     #[arg(long, value_enum, default_value_t = Format::Auto, requires = "inline")]
     format: Format,
-    /// Style name: a built-in or a file in ~/.config/folio/styles.
+    /// Style name: a built-in or a file in ~/.config/dat/styles.
     #[arg(long, default_value = "github")]
     style: String,
     /// Theme flavor from the palette.
-    #[arg(long, env = "FOLIO_THEME")]
+    #[arg(long, env = "DAT_THEME")]
     theme: Option<String>,
     /// Pane width for --inline; defaults to fzf's preview width, else the terminal's, else 120.
     #[arg(long)]
@@ -59,10 +59,10 @@ enum Format {
 fn main() -> ExitCode {
     let args = Args::parse();
     let to_stderr = args.inline || args.list_styles;
-    let _guard = match folio::log::init(to_stderr) {
+    let _guard = match dat::log::init(to_stderr) {
         Ok(g) => g,
         Err(e) => {
-            eprintln!("folio: cannot open the log: {e}");
+            eprintln!("dat: cannot open the log: {e}");
             None
         }
     };
@@ -72,7 +72,7 @@ fn main() -> ExitCode {
             if !to_stderr {
                 error!(error = format!("{e:#}"), "exit");
             }
-            eprintln!("folio: {e:#}");
+            eprintln!("dat: {e:#}");
             let style_error = e.downcast_ref::<StyleError>().is_some();
             ExitCode::from(if style_error { 2 } else { 1 })
         }

@@ -5,7 +5,6 @@ pub mod links;
 mod position;
 pub mod search;
 pub mod selection;
-pub mod trace;
 mod watch;
 
 use std::io::{Write as _, stdout};
@@ -134,8 +133,6 @@ pub struct App {
     /// Where the watcher and the input thread deliver; set by `run`.
     tx: Option<Sender<Input>>,
     positions: Option<Positions>,
-    /// Record action edges in the shared trace log; only the running reader does.
-    trace: bool,
     /// Set while an editor owns the terminal, so the input thread leaves the keys to it.
     input_paused: Arc<AtomicBool>,
     /// The mouse selection, while dragging and until the next press or Esc.
@@ -166,7 +163,6 @@ impl App {
             watch: None,
             tx: None,
             positions: None,
-            trace: false,
             input_paused: Arc::new(AtomicBool::new(false)),
             selection: None,
         }
@@ -283,7 +279,6 @@ impl App {
         let at = all.iter().position(|t| t.id == self.theme.id).unwrap_or(0);
         let next = &all[(at + 1) % all.len()];
         info!(from = %self.theme.id, to = %next.id, "theme");
-        self.trace_edge("theme", &[("to", &next.id)]);
         self.theme = next;
         self.layouter.set_theme(next);
         self.relayout(self.page.width);
@@ -446,7 +441,6 @@ impl App {
 
     fn follow(&mut self, link: &str) {
         info!(link, "follow");
-        self.trace_edge("follow", &[("link", link)]);
         match links::classify(link) {
             Action::Anchor(id) => self.jump_to_anchor(&id),
             Action::Wiki { name, heading } => match links::resolve_wiki(&name, self.buffer.dir()) {
@@ -504,10 +498,6 @@ impl App {
         self.relayout(self.page.width);
         self.restore_position();
         self.apply_watch();
-        if let Some(p) = self.buffer.path() {
-            let shown = p.display().to_string();
-            self.trace_edge("open", &[("path", &shown)]);
-        }
     }
 
     fn toggle_watch(&mut self) {
@@ -574,12 +564,6 @@ impl App {
         let line = self.buffer.path().and_then(|p| self.positions.as_ref()?.get(p));
         if let Some(line) = line {
             self.scroll_to_line(line);
-        }
-    }
-
-    fn trace_edge(&self, evt: &str, fields: &[(&str, &str)]) {
-        if self.trace {
-            trace::edge(evt, fields);
         }
     }
 
@@ -718,7 +702,6 @@ impl App {
     pub fn run(mut self) -> std::io::Result<()> {
         let (tx, rx) = mpsc::channel();
         self.tx = Some(tx.clone());
-        self.trace = true;
         if let Some(dir) = crate::log::state_dir() {
             self.positions = Some(Positions::open(&dir));
         }
@@ -730,10 +713,6 @@ impl App {
         self.resize(size.width, size.height);
         self.restore_position();
         self.apply_watch();
-        if let Some(p) = self.buffer.path() {
-            let shown = p.display().to_string();
-            self.trace_edge("open", &[("path", &shown)]);
-        }
         let result = self.event_loop(&mut terminal, &rx);
         self.remember_position();
         if let Some(p) = &mut self.positions

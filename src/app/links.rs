@@ -135,7 +135,7 @@ mod tests {
 
     #[test]
     fn wikilinks_resolve_beside_the_file_then_under_the_vault_root() {
-        let root = std::env::temp_dir().join(format!("folio-wiki-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("dat-wiki-{}", std::process::id()));
         std::fs::create_dir_all(root.join(".obsidian")).expect("root");
         std::fs::create_dir_all(root.join("a/deep")).expect("dirs");
         std::fs::create_dir_all(root.join("b")).expect("dirs");

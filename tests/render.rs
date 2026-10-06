@@ -1,10 +1,10 @@
 //! Snapshot tests: the sample note through each built-in style at two widths.
 #![allow(clippy::expect_used)]
 
-use folio::buffer::Buffer;
-use folio::layout::Layouter;
-use folio::theme::Theme;
-use folio::{doc, render, style};
+use dat::buffer::Buffer;
+use dat::layout::Layouter;
+use dat::theme::Theme;
+use dat::{doc, render, style};
 
 const SAMPLE: &str = include_str!("fixtures/sample.md");
 const EDGES: &str = include_str!("fixtures/edges.md");
@@ -50,7 +50,7 @@ fn every_flavor_paints_the_sample() {
     let buffer = Buffer::from_text(SAMPLE);
     let document = doc::parse(&buffer);
     let style = style::load("github", None).expect("style");
-    for theme in folio::theme::flavors().expect("palette") {
+    for theme in dat::theme::flavors().expect("palette") {
         let page = Layouter::new(theme).layout(&document, &style, 100);
         insta::assert_snapshot!(format!("ansi_{}", theme.id), render::ansi(&page, theme, false));
     }
