@@ -40,7 +40,7 @@ INSTA_UPDATE=no cargo test --locked --quiet
 
 if command -v cargo-deny >/dev/null 2>&1; then
     step "deny"
-    cargo deny check
+    cargo deny --log-level error check
 else
     skip "deny" "cargo install --locked cargo-deny"
 fi
@@ -50,6 +50,13 @@ if command -v shellcheck >/dev/null 2>&1; then
     shellcheck -x scripts/*.sh
 else
     skip "shellcheck" "apt install shellcheck"
+fi
+
+if command -v npx >/dev/null 2>&1; then
+    step "prettier"
+    npx --yes "prettier@$PRETTIER_VERSION" --check --log-level warn .
+else
+    skip "prettier" "node, for npx"
 fi
 
 if command -v gitleaks >/dev/null 2>&1; then

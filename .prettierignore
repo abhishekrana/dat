@@ -1,0 +1,4 @@
+# Fixtures are rendering input; formatting them would change the snapshots.
+tests/fixtures/
+tests/snapshots/
+CHANGELOG.md

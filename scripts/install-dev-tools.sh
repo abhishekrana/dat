@@ -27,4 +27,5 @@ cargo install --locked git-cliff --version "$GIT_CLIFF_VERSION"
 echo
 echo "Installed. Optional, checked by scripts/check.sh when present:"
 echo "  shellcheck  (apt install shellcheck)"
+echo "  npx         (node, for prettier $PRETTIER_VERSION)"
 echo "  gitleaks $GITLEAKS_VERSION (https://github.com/gitleaks/gitleaks/releases)"
