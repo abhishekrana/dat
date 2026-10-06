@@ -67,7 +67,9 @@ fn resolve(name: &str, user_dir: Option<&Path>, depth: usize) -> Result<Table, S
     let Value::String(parent) = parent else {
         return Err(StyleError::ExtendsType { name: name.to_owned() });
     };
-    let mut merged = resolve(&parent, user_dir, depth + 1)?;
+    // A user file that extends its own name builds on the built-in it replaces.
+    let parent_dir = if parent == name { None } else { user_dir };
+    let mut merged = resolve(&parent, parent_dir, depth + 1)?;
     merge(&mut merged, table);
     Ok(merged)
 }
@@ -111,6 +113,16 @@ fn merge(base: &mut Table, child: Table) {
 mod tests {
     use super::*;
     use crate::style::{HeadingLine, TableLines};
+
+    #[test]
+    fn a_user_style_can_extend_the_built_in_it_replaces() {
+        let dir = std::env::temp_dir().join(format!("dat-style-self-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("dir");
+        std::fs::write(dir.join("github.toml"), "extends = \"github\"\nh1 = { below = 3 }\n").expect("write");
+        let s = load("github", Some(&dir)).expect("loads");
+        assert_eq!((s.h1.below, s.h1.rule), (3, HeadingLine::Column));
+        std::fs::remove_dir_all(&dir).ok();
+    }
 
     #[test]
     fn base_loads_in_full() {
