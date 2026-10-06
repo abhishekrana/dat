@@ -1,10 +1,9 @@
-# folio - design
+# dat - design
 
 _A markdown reader for the terminal that reads like a page in a browser, not like a terminal tool._
 
-This is the spec for the first version. It says what folio is, how it is built, and what a style file looks like.
-Everything in it was decided against four look mockups - the GitHub one was chosen - and the design language in
-`../../design/README.md`.
+This is the spec for the first version. It says what dat is, how it is built, and what a style file looks like.
+Everything in it was decided against four look mockups - the GitHub one was chosen.
 
 ## What it is
 
@@ -12,13 +11,12 @@ Everything in it was decided against four look mockups - the GitHub one was chos
   rhythm, rules, tinted code, quiet tables, links in one accent.
 - **Styles are files.** A look is a TOML file of per-element rules. GitHub is the first built-in; adding a look is
   adding a file, and the engine knows nothing about any of them.
-- **Colours are roles, never hexes.** A style names `accent`, `surface`, `muted`; the flavor from `design/palette.toml`
-  says what those are. Every style works in every flavor, and the `theme` switcher drives folio the way it drives hunk.
+- **Colours are roles, never hexes.** A style names `accent`, `surface`, `muted`; the flavor from
+  `src/theme/palette.toml` says what those are. Every style works in every flavor, and `DAT_THEME` picks the flavor.
 - Built to become an editor later without a rewrite: a rope holds the text, every node carries its byte span, and every
   rendered line knows the source range it came from. Nothing in v1 edits.
 
-Not a browser (no history stack), not a file manager, not a notes app. leaf stays installed until folio reaches parity
-with what it renders today.
+Not a browser (no history stack), not a file manager, not a notes app.
 
 ## Scope
 
@@ -29,12 +27,12 @@ with what it renders today.
 - Vault syntax: `[[wikilinks]]` (with `|alias` and `#heading`), `#tags`. Both render; a wikilink opens the note if the
   vault holds one file of that name, else says so.
 - Code blocks highlighted with bat's grammars and themes (two-face), language label from the fence.
-- Links: OSC 8 on every link in `--inline`; a click follows one in the reader. `.md` targets open in folio, `#anchors`
+- Links: OSC 8 on every link in `--inline`; a click follows one in the reader. `.md` targets open in dat, `#anchors`
   scroll, anything else goes to `xdg-open`.
 - Outline (`t`) as an overlay, heading jumps, in-document search (`/`, `n`, `N`), help (`?`).
 - Watch and reload, `--inline` to stdout for fzf and yazi previews, stdin.
-- One built-in style (`github`), user styles from `~/.config/folio/styles/`, `--style`, `S` cycles at runtime.
-- Theme by role: `--theme <flavor>`, `FOLIO_THEME`, default `solarized-light`.
+- One built-in style (`github`), user styles from `~/.config/dat/styles/`, `--style`, `S` cycles at runtime.
+- Theme by role: `--theme <flavor>`, `DAT_THEME`, default `solarized-light`.
 
 **v2 - beyond the grid**
 
@@ -61,7 +59,7 @@ source (rope) -> parse (comrak) -> Document -> layout (measure) -> Lines -> pain
 | Document | `doc`    | `Block` tree with `Span` (byte range) on every block and inline. Built from comrak.   |
 | Style    | `style`  | Loads TOML into `Style`: one `Rule` per element, resolved against defaults/`extends`. |
 | Layout   | `layout` | `Document` × `Style` × width → `Vec<Line>`; each `Line` has cells, and a `Span`.      |
-| Theme    | `theme`  | Role → colour for a flavor. Generated from `design/palette.toml`.                     |
+| Theme    | `theme`  | Role → colour for a flavor. Compiled in from `palette.toml`.                          |
 | Paint    | `ui`     | ratatui widgets: the page, outline overlay, search bar, help, status line.            |
 | App      | `app`    | Elm loop: `Model`, `Msg`, `update`, `view`. Keys, mouse, watch events, mode.          |
 | CLI      | `main`   | clap: args, `--inline`, stdin, exit codes. Thin.                                      |
@@ -116,11 +114,11 @@ not a comrak extension; a small pass over `Inline::Text` splits `#word` out, ski
 
 ### Style files
 
-A style is TOML. Keys are element names; values are rules. Colours are palette roles. Unknown keys fail loudly, as the
-workdesk config does, so a typo cannot silently fall back to a default.
+A style is TOML. Keys are element names; values are rules. Colours are palette roles. Unknown keys fail loudly, so a
+typo cannot silently fall back to a default.
 
 ```toml
-# ~/.config/folio/styles/github.toml (the built-in, verbatim)
+# ~/.config/dat/styles/github.toml (the built-in, verbatim)
 name    = "GitHub"
 extends = "base"  # every built-in inherits base; a user style may extend any built-in
 measure = "full"  # or a cell count, e.g. 80
@@ -169,12 +167,12 @@ tables is `none | rules | box`; `label` on code is `none | above | right`; `fron
 Docs are each a file of overrides on `base`.
 
 Resolution order: `base` (compiled in), then the named style's `extends` chain, then the style itself.
-`~/.config/folio/styles/` is searched before the built-ins, so a user file named `github.toml` replaces the built-in.
+`~/.config/dat/styles/` is searched before the built-ins, so a user file named `github.toml` replaces the built-in.
 
 ### Theme
 
-`src/theme/mod.rs` reads `design/palette.toml` with `include_str!`, so a flavor is defined once and compiled in - no
-codegen step, unlike agentbar's generated `theme_gen.go`. Roles available to styles:
+`src/theme/mod.rs` reads `src/theme/palette.toml` with `include_str!`, so a flavor is defined once and compiled in - no
+codegen step. Roles available to styles:
 `bg surface selection border fg emphasis muted accent changes float working asking blocked done`. Syntax highlighting
 uses two-face's Solarized and Catppuccin themes, mapped per flavor, so a code block matches bat in the pane beside it.
 
@@ -205,7 +203,7 @@ vault root (the nearest `.obsidian` or `.git`), a `.md` path opens relative to t
 `xdg-open`. The TUI cannot emit OSC 8 (ratatui has no hyperlink cells), so links there are followed by clicking;
 `--inline` on a terminal still wraps links in OSC 8.
 
-Selection is folio's own, not the terminal's: mouse capture is on for the wheel and for click-to-follow, so the terminal
+Selection is dat's own, not the terminal's: mouse capture is on for the wheel and for click-to-follow, so the terminal
 never sees the drag. A press anchors, a drag paints the range in `selection`, and a release copies through `clip` -
 matching Ghostty's `copy-on-select`. A press that never moves is a click, so following a link is unchanged. What is
 copied is the rendered page, not the source: wrapped lines are wrapped and trailing padding is trimmed per row.
@@ -216,37 +214,32 @@ inside the pane; tmux keeps its own below.
 ## CLI
 
 ```
-folio [FILE]                  # a file, or stdin when FILE is absent and stdin is not a TTY
-folio --inline [FILE]         # render to stdout, no TUI; width: --width, else FZF_PREVIEW_COLUMNS, else the
-                              # terminal, else 120 - so fzf and yazi previews fit without flags
-folio --inline --format plain # force plain or ansi; auto (default) is ansi on a terminal, plain in a pipe
-folio --style github --theme solarized-dark --no-watch FILE
-folio --list-styles
+dat [FILE]                  # a file, or stdin when FILE is absent and stdin is not a TTY
+dat --inline [FILE]         # render to stdout, no TUI; width: --width, else FZF_PREVIEW_COLUMNS, else the
+                            # terminal, else 120 - so fzf and yazi previews fit without flags
+dat --inline --format plain # force plain or ansi; auto (default) is ansi on a terminal, plain in a pipe
+dat --style github --theme solarized-dark --no-watch FILE
+dat --list-styles
 ```
 
 Exit codes: 0, 1 on a bad argument or unreadable file, 2 on a style file that fails to load (named, with the key).
 
-## In this repo
+## Outside dat
 
-- `apps/folio/` with a `Makefile` (`build`, `test`, `lint`, `clean`) so `bootstrap.sh`'s `build_apps` picks it up
-  unchanged. `link_app_clis` links `bin/folio` into `~/.local/bin` alongside workdesk: it is a CLI you type.
-- **Toolchain.** `install.sh` gains `install_rust`: rustup into `~/.local`. The version is pinned twice by necessity -
-  `RUST_VERSION` in `install.sh` is what a machine installs, `rust-toolchain.toml` is what cargo runs - and `task conf`
-  fails when they disagree.
-- **Gate.** `task check` runs `folio:lint` (`cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`) and
-  `folio:test`. `task width` adds `*.rs` to its 120-column sweep; rustfmt's `max_width` is set to 120 to match.
-- **Theme switcher** gains a `folio` row: named, `export FOLIO_THEME` in `env.sh`, next launch. `theme-switcher.md` gets
-  the line.
-- **Previews.** fzf's `Ctrl-T` previews `.md` files through `folio --inline --format ansi`, sized by
-  `FZF_PREVIEW_COLUMNS`; other files keep bat. yazi has no previewer configured here, so it is left alone.
-- **Trace.** Edges only (`open`, `style`, `theme`, `follow`), by calling the `dotfiles-trace` CLI. No third writer.
+dat starts three programs and assumes nothing else about the machine:
+
+- `clip` - copying (selection release, `y`) pipes the text to a `clip` command on `PATH`; without one, the copy reports
+  that it failed.
+- `$VISUAL` or `$EDITOR` - `e` opens the file at the top line.
+- `xdg-open` - a link that is neither an anchor, a wikilink nor a `.md` file.
 
 ## Engineering conventions
 
 Modern, boring Rust; the community's defaults, not ours.
 
-- Edition 2024, MSRV in `rust-toolchain.toml`, `Cargo.lock` committed. rustfmt defaults except `max_width = 120`. clippy
-  at `-D warnings` with `clippy::pedantic` enabled and a short, justified allow-list in `Cargo.toml`.
+- Edition 2024, MSRV as `rust-version` in `Cargo.toml`, `Cargo.lock` committed. rustfmt defaults except
+  `max_width = 120`. clippy at `-D warnings` with `clippy::pedantic` enabled and a short, justified allow-list in
+  `Cargo.toml`.
 - `thiserror` in library modules, `anyhow` only in `main`. No `unwrap` outside tests. No `unsafe`.
 - One crate, `src/` modules as in the table above; a module is one job. `lib.rs` exposes what `main.rs` and the tests
   use, nothing else.
@@ -255,7 +248,7 @@ Modern, boring Rust; the community's defaults, not ours.
 - **Tests are snapshots.** The mockups' sample note is the fixture; each built-in style has an `--inline` snapshot at 80
   and 60 columns, so a rendering change is a reviewed diff. Wrapping, width and table allocation have unit tests.
   Nothing tests the live terminal.
-- Comments say what, one line. History goes in commit messages, as the repo's `CLAUDE.md` says.
+- Comments say what, one line. History goes in commit messages.
 
 ## Open questions
 
