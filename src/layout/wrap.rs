@@ -176,42 +176,49 @@ fn space(style: CellStyle) -> Word {
     }
 }
 
-/// Greedy wrap at `width` cells. A word wider than the row is split on grapheme boundaries.
+/// Greedy wrap at `width` cells. Text runs with no space between them - a link and the full stop after it - wrap
+/// as one unit; a unit wider than the row breaks between its runs, and a run wider than the row on graphemes.
 pub(super) fn wrap(words: &[Word], width: usize) -> Vec<Vec<Segment>> {
     let width = width.max(1);
     let mut rows: Vec<Vec<Segment>> = vec![Vec::new()];
     let mut used = 0usize;
-    for w in words {
+    let mut i = 0;
+    while i < words.len() {
+        let w = &words[i];
         match w.kind {
             Kind::Break => {
                 rows.push(Vec::new());
                 used = 0;
+                i += 1;
             }
             Kind::Space => {
                 if used > 0 && used < width {
                     push_seg(rows.last_mut(), w);
                     used += 1;
                 }
-            }
-            Kind::Text if w.width <= width => {
-                if used + w.width > width {
-                    trim_trailing_space(rows.last_mut());
-                    rows.push(Vec::new());
-                    used = 0;
-                }
-                push_seg(rows.last_mut(), w);
-                used += w.width;
+                i += 1;
             }
             Kind::Text => {
-                for piece in split_graphemes(w, width) {
-                    if used + piece.width > width {
-                        trim_trailing_space(rows.last_mut());
-                        rows.push(Vec::new());
-                        used = 0;
+                let end = words[i..]
+                    .iter()
+                    .position(|w| w.kind != Kind::Text)
+                    .map_or(words.len(), |n| i + n);
+                let unit = &words[i..end];
+                let unit_width: usize = unit.iter().map(|w| w.width).sum();
+                if unit_width <= width {
+                    if used + unit_width > width {
+                        new_row(&mut rows, &mut used);
                     }
-                    push_seg(rows.last_mut(), &piece);
-                    used += piece.width;
+                    for w in unit {
+                        push_seg(rows.last_mut(), w);
+                    }
+                    used += unit_width;
+                } else {
+                    for w in unit {
+                        place(&mut rows, &mut used, w, width);
+                    }
                 }
+                i = end;
             }
         }
     }
@@ -224,29 +231,54 @@ pub(super) fn wrap(words: &[Word], width: usize) -> Vec<Vec<Segment>> {
     rows
 }
 
+/// One text run: on this row if it fits, else on the next, split on graphemes if wider than a row.
+fn place(rows: &mut Vec<Vec<Segment>>, used: &mut usize, w: &Word, width: usize) {
+    if w.width <= width {
+        if *used + w.width > width {
+            new_row(rows, used);
+        }
+        push_seg(rows.last_mut(), w);
+        *used += w.width;
+        return;
+    }
+    for piece in split_graphemes(w, width) {
+        if *used + piece.width > width {
+            new_row(rows, used);
+        }
+        push_seg(rows.last_mut(), &piece);
+        *used += piece.width;
+    }
+}
+
+fn new_row(rows: &mut Vec<Vec<Segment>>, used: &mut usize) {
+    trim_trailing_space(rows.last_mut());
+    rows.push(Vec::new());
+    *used = 0;
+}
+
 fn split_graphemes(w: &Word, width: usize) -> Vec<Word> {
+    let piece = |text: String, width: usize| Word {
+        text,
+        width,
+        style: w.style,
+        src: w.src,
+        link: w.link.clone(),
+        kind: w.kind,
+    };
     let mut pieces = Vec::new();
     let mut cur = String::new();
     let mut cur_w = 0;
     for g in w.text.graphemes(true) {
         let gw = g.width();
         if cur_w + gw > width && !cur.is_empty() {
-            pieces.push(Word {
-                text: std::mem::take(&mut cur),
-                width: cur_w,
-                ..w.clone()
-            });
+            pieces.push(piece(std::mem::take(&mut cur), cur_w));
             cur_w = 0;
         }
         cur.push_str(g);
         cur_w += gw;
     }
     if !cur.is_empty() {
-        pieces.push(Word {
-            text: cur,
-            width: cur_w,
-            ..w.clone()
-        });
+        pieces.push(piece(cur, cur_w));
     }
     pieces
 }
@@ -319,6 +351,26 @@ mod tests {
         assert_eq!(
             rows(&text("the quick brown fox jumps"), 10),
             vec!["the quick", "brown fox", "jumps"]
+        );
+    }
+
+    #[test]
+    fn punctuation_after_a_link_stays_with_it() {
+        let at = |start: usize, end: usize| Span { start, end };
+        let inlines = vec![
+            Inline::Text("Some words before the ".to_owned(), at(0, 22)),
+            Inline::Link {
+                text: vec![Inline::Text("guide".to_owned(), at(23, 28))],
+                href: "g.md".to_owned(),
+                span: at(22, 35),
+            },
+            Inline::Text(". Then.".to_owned(), at(35, 42)),
+        ];
+        assert_eq!(rows(&inlines, 27), vec!["Some words before the", "guide. Then."]);
+        assert_eq!(rows(&inlines, 28), vec!["Some words before the guide.", "Then."]);
+        assert_eq!(
+            rows(&inlines, 4),
+            vec!["Some", "word", "s", "befo", "re", "the", "guid", "e.", "Then", "."]
         );
     }
 
