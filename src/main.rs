@@ -27,12 +27,12 @@ const DEFAULT_STYLE: &str = "github";
 #[derive(Debug, Parser)]
 #[command(name = "dat", version, about)]
 struct Args {
-    /// Markdown file; stdin when absent and not a terminal.
+    /// Markdown file to read; without one, dat reads stdin unless it is a terminal.
     file: Option<PathBuf>,
     /// Render to stdout instead of opening the reader.
     #[arg(long)]
     inline: bool,
-    /// Output for --inline: auto is ansi on a terminal and plain in a pipe.
+    /// Output format for --inline; auto means ansi on a terminal and plain in a pipe.
     #[arg(long, value_enum, default_value_t = Format::Auto, requires = "inline")]
     format: Format,
     /// Style name: a built-in or a file in ~/.config/dat/styles [default: github].
@@ -47,10 +47,10 @@ struct Args {
     /// Pane width for --inline; defaults to fzf's preview width, else the terminal's, else 120.
     #[arg(long)]
     width: Option<u16>,
-    /// List the styles that can be loaded and exit.
+    /// List the styles dat can load, then exit.
     #[arg(long)]
     list_styles: bool,
-    /// Do not follow the file on disk (the reader reloads on change by default).
+    /// Do not reload when the file changes on disk (the reader reloads by default).
     #[arg(long)]
     no_watch: bool,
 }

@@ -26,7 +26,7 @@ pub enum StyleError {
         path: PathBuf,
         err: std::io::Error,
     },
-    #[error("style {name:?}: extends chain is longer than {MAX_CHAIN} (a cycle?)")]
+    #[error("style {name:?}: the `extends` chain is longer than {MAX_CHAIN}, which may mean a cycle")]
     Chain { name: String },
     #[error("style {name:?}: `extends` must be a string")]
     ExtendsType { name: String },

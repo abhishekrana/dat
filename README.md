@@ -2,8 +2,9 @@
 
 # dat
 
-**Markdown in the terminal, read like a page.** `cat` prints a file, `bat` colours it, `dat` lays markdown out the way a
-browser would: rhythm, rules, tinted code, quiet tables and one accent colour for links.
+**Markdown in the terminal, read like a page.** `cat` prints a file, `bat` colours it, and `dat` lays markdown out the
+way a browser would, with spacing between blocks, rules, code on a tinted background, tables ruled in the border colour
+and one accent colour for links.
 
 [![ci](https://github.com/abhishekrana/dat/actions/workflows/ci.yml/badge.svg)](https://github.com/abhishekrana/dat/actions/workflows/ci.yml)
 [![release](https://img.shields.io/github/v/release/abhishekrana/dat)](https://github.com/abhishekrana/dat/releases)
@@ -43,53 +44,53 @@ some-command | dat --inline         # stdin works too
 dat --theme solarized-dark FILE     # or set DAT_THEME
 ```
 
-`--inline` writes ANSI on a terminal and plain text in a pipe; `--format ansi|plain` forces one. Its width is `--width`,
-else fzf's preview width, else the terminal's, else 120, so it fits an fzf preview with no flags:
+`--inline` writes ANSI on a terminal and plain text in a pipe, and `--format ansi|plain` forces one. The width is
+`--width`, else fzf's preview width, else the terminal's, else 120, so the output fits an fzf preview with no flags:
 
 ```sh
 fzf --preview 'dat --inline --format ansi {}'
 ```
 
-The reader follows the file on disk and reloads when it changes (`--no-watch` turns that off), and remembers where you
-were in each file.
+The reader reloads the file when it changes on disk (`--no-watch` turns that off) and remembers your position in each
+file.
 
-Exit codes: `0`; `2` when the request is wrong - a flag, a theme or style name, a config or style file; `1` when
-something fails while running, such as a file that cannot be read.
+dat exits with `0` on success, `2` when the request is wrong (a flag, a theme or style name, a config or style file) and
+`1` when something fails while running, such as a file that cannot be read.
 
 ## Keys
 
-vi and less, nothing to learn:
+The keys follow vi and less:
 
 | Key                   | Action                                                  |
 | --------------------- | ------------------------------------------------------- |
 | `j` `k` `↓` `↑`       | scroll a line; the wheel does the same                  |
-| `d` `u` `PgDn` `PgUp` | half page; `space` a page                               |
+| `d` `u` `PgDn` `PgUp` | half a page; `space` a full page                        |
 | `g` `G`               | top, bottom                                             |
 | `]` `[`               | next, previous heading                                  |
 | `t`                   | outline; `↵` jumps, `Esc` closes                        |
 | `/` `n` `N`           | search, next, previous; `Esc` clears                    |
 | click                 | follow a link                                           |
-| drag                  | select text; the release copies it                      |
-| `Backspace`           | back to the note a link was followed from               |
+| drag                  | select text; releasing the button copies it             |
+| `Backspace`           | go back to the note you followed the link from          |
 | `y`                   | copy the selection, else the code block at the top      |
 | `e`                   | open the file at the top line in `$VISUAL` or `$EDITOR` |
-| `r` `w`               | reload; toggle following the file on disk               |
+| `r` `w`               | reload; toggle reloading when the file changes          |
 | `T`                   | cycle the theme                                         |
 | `?` `q`               | help; quit                                              |
 
 A link to `#anchor` scrolls to the heading, `[[Note]]` opens that note from the same vault, a `.md` path opens in dat,
-and anything else goes to `xdg-open`. Copying uses `wl-copy` on Wayland, `xclip` on X11 or `pbcopy` on macOS; without
-one it goes through the terminal (OSC 52), which tmux passes on with `set -g set-clipboard on`.
+and `xdg-open` opens anything else. Copying uses `wl-copy` on Wayland, `xclip` on X11 or `pbcopy` on macOS. Without any
+of them, dat copies through the terminal with OSC 52, which tmux passes on with `set -g set-clipboard on`.
 
 ## Styles and themes
 
-A **style** is the look: a TOML file with one table per element. `github` is built in; files in `~/.config/dat/styles/`
-are loaded by name with `--style NAME` and replace a built-in of the same name. `dat --list-styles` shows what is
-available. A style names colour roles (`accent`, `surface`, `muted`, ...), never hex values, so every style works in
-every theme.
+A **style** sets the look. It is a TOML file with one table per element. `github` is built in, `--style NAME` loads a
+file by name from `~/.config/dat/styles/`, and a file there replaces a built-in of the same name. `dat --list-styles`
+lists the styles dat can load. A style names colour roles (`accent`, `surface`, `muted`, ...), never hex values, so
+every style works in every theme.
 
 A **theme** gives the roles their colours: `solarized-light` (default), `solarized-dark`, `catppuccin-latte`,
-`catppuccin-mocha`. Code blocks are highlighted with bat's grammars and matching themes.
+`catppuccin-mocha`. dat highlights code blocks with bat's grammars and a syntax theme that matches the dat theme.
 
 [DESIGN.md](DESIGN.md) has the style file format and every element it can set.
 
@@ -103,16 +104,16 @@ style = "github"          # a built-in or a file in ~/.config/dat/styles/
 watch = true              # follow the file on disk and reload on change
 ```
 
-A flag beats an environment variable, which beats the config file, which beats the built-in default. An unknown key is
-an error, so a typo is reported rather than ignored.
+A flag overrides an environment variable, which overrides the config file, which overrides the built-in default. An
+unknown key is an error, so dat reports a typo instead of ignoring it.
 
 | Variable          | Effect                                                                     |
 | ----------------- | -------------------------------------------------------------------------- |
 | `DAT_THEME`       | theme, as `--theme`                                                        |
 | `DAT_CONFIG`      | config file to read instead, as `--config`                                 |
 | `DAT_LOG`         | log level (`debug`, `info`, ...); the reader logs to `~/.local/state/dat/` |
-| `XDG_CONFIG_HOME` | where `dat/config.toml` and `dat/styles/` are looked up                    |
-| `XDG_STATE_HOME`  | where logs and reading positions are kept                                  |
+| `XDG_CONFIG_HOME` | directory dat looks in for `dat/config.toml` and `dat/styles/`             |
+| `XDG_STATE_HOME`  | directory for logs and reading positions                                   |
 
 ## Development
 
@@ -123,8 +124,8 @@ scripts/check.sh                 # the gate CI runs
 ```
 
 A changed rendering fails the snapshot tests; accept it with `INSTA_UPDATE=always cargo test`, then read the snapshot
-diff before committing. Commits follow [Conventional Commits](https://www.conventionalcommits.org/), which
-`CHANGELOG.md` and the release notes are generated from.
+diff before committing. Commits follow [Conventional Commits](https://www.conventionalcommits.org/), and git-cliff
+generates `CHANGELOG.md` and the release notes from them.
 
 ## License
 
